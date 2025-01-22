@@ -1,0 +1,4 @@
+data/
+data
+backend/db/qdrant_storage
+llm/kg_data
