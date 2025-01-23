@@ -1,9 +1,12 @@
 from fastapi import File, FastAPI, HTTPException, UploadFile
 from pydantic import BaseModel
+from dotenv import load_dotenv
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import uvicorn
 import requests
+import openai
+import os
 
 # Initialize the model, tokenizer, and pipeline
 torch.random.manual_seed(0)
@@ -13,8 +16,14 @@ model = AutoModelForCausalLM.from_pretrained(
     torch_dtype=torch.float16,
     trust_remote_code=True,
 )
-
 tokenizer = AutoTokenizer.from_pretrained("EmergentMethods/Phi-3-mini-4k-instruct-graph")
+
+load_dotenv("../../.env")
+
+client = openai.OpenAI(
+    api_key=os.environ.get("SAMBANOVA_API_KEY"),
+    base_url="https://api.sambanova.ai/v1",
+)
 
 pipe = pipeline(
     "text-generation",
@@ -123,8 +132,17 @@ async def chat(request: RAGRequest):
             },
         ]
 
-        output = pipe(messages, **generation_args)
-        return {"response": output[0]['generated_text']}
+        response = client.chat.completions.create(
+            model='Meta-Llama-3.1-8B-Instruct',
+            messages=messages,
+            temperature =  0.1,
+            top_p = 0.1
+        )
+
+        return {"response": response.choices[0].message.content}
+
+        # output = pipe(messages, **generation_args)
+        # return {"response": output[0]['generated_text']}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
