@@ -72,9 +72,9 @@ def process_json_file(file_path, neo4j_handler):
 
 # Initialize Neo4jHandler
 neo4j_handler = Neo4jHandler(
-    "neo4j+ssc://a58d5521.databases.neo4j.io", 
-    "neo4j", 
-    "zwnSQl9-wTizMKf3NRcURy0R_kg6ZtfEhxCDpcyCO-c",
+    URI, 
+    USERNAME, 
+    PASSWORD,
 )
 
 # Batch Create Entities and Relationships in Neo4j
