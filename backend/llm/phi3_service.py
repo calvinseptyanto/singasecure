@@ -4,9 +4,8 @@ from dotenv import load_dotenv
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import uvicorn
-import requests
-import openai
-import os
+
+load_dotenv("../../.env")
 
 # Initialize the model, tokenizer, and pipeline
 torch.random.manual_seed(0)
@@ -18,13 +17,6 @@ model = AutoModelForCausalLM.from_pretrained(
 )
 tokenizer = AutoTokenizer.from_pretrained("EmergentMethods/Phi-3-mini-4k-instruct-graph")
 
-load_dotenv("../../.env")
-
-client = openai.OpenAI(
-    api_key=os.environ.get("SAMBANOVA_API_KEY"),
-    base_url="https://api.sambanova.ai/v1",
-)
-
 pipe = pipeline(
     "text-generation",
     model=model,
@@ -33,7 +25,7 @@ pipe = pipeline(
 
 # Generation arguments
 generation_args = {
-    "max_new_tokens": 500,
+    "max_new_tokens": 700,
     "return_full_text": False,
     "do_sample": False,
 }
@@ -66,7 +58,7 @@ The Assistant follows the following steps before replying to the User:
 
 where \"type\": <type> is a broad categorization of the entity. \"detailed type\": <detailed_type>  is a very descriptive categorization of the entity.
 
-2. **determine relationships** The Assistant uses the text between -------Text begin------- and -------Text end------- to determine the relationships between the entities identified in the \"nodes\" list defined above. These relationships are called \"edges\" and they follow the structure of:
+2. **determine relationships** The Assistant uses the text between -------Text begin------- and -------Text end------- to determine the relationships between the entities identified in the \"nodes\" list defined above. Only include edges that These relationships are called \"edges\" and they follow the structure of:
 
 \"edges\":[{"from": <entity 1>, "to": <entity 2>, "label": <relationship>}, ...]
 
@@ -89,63 +81,6 @@ The Assistant responds to the User in JSON only, according to the following JSON
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-class RAGRequest(BaseModel):
-    question: str
-
-@app.post("/chat")
-async def chat(request: RAGRequest):
-    try:
-        question = request.question
-        # Make a request to VectorDB to retrieve context
-        url = "http://localhost:8001/retrieve-context"
-
-        payload = {
-            "collection_name" : "main",
-            "question" : question,
-            "k" : 5
-        }
-        response = requests.post(url, json=payload)
-
-        # Append Context to Prompt
-        retrieved_docs_text = response.json()['context']
     
-        context = "\nExtracted documents:\n"
-        context += "".join([f"Document {str(i)}:::\n" + doc for i, doc in enumerate(retrieved_docs_text)])
-        messages = [
-            {
-                "role": "system",
-                "content": """Using the information contained in the context,
-        give a comprehensive answer to the question.
-        Respond only to the question asked, response should be concise and relevant to the question.
-        Provide the number of the source document when relevant.
-        If the answer cannot be deduced from the context, do not give an answer.""",
-            },
-            {
-                "role": "user",
-                "content": f"""Context:
-        {context}
-        ---
-        Now here is the question you need to answer.
-
-        Question: {question}""",
-            },
-        ]
-
-        response = client.chat.completions.create(
-            model='Meta-Llama-3.1-8B-Instruct',
-            messages=messages,
-            temperature =  0.1,
-            top_p = 0.1
-        )
-
-        return {"response": response.choices[0].message.content}
-
-        # output = pipe(messages, **generation_args)
-        # return {"response": output[0]['generated_text']}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -20,6 +20,7 @@ hf = HuggingFaceEmbeddings(
     encode_kwargs=encode_kwargs
 )
 
+# File path to knowledge graphs outputs
 file_path = "../../data/kg_data/kg_outputs_500.json"
 
 # Initialize lists to hold grouped entities and relationships
@@ -27,8 +28,6 @@ entities_records = []
 relationships_records = []
 
 # Start timing the file processing
-start_time = time.time()
-
 with open(file_path, "r") as file:
     data = json.load(file)  # Parse JSON file content
 
@@ -50,8 +49,8 @@ with open(file_path, "r") as file:
             # Create Relationship objects using entity_mapping
             relationships_records.append([
                 Relationship(
-                    startEntity=entity_mapping[edge["from"]],  # Reference the startEntity
-                    endEntity=entity_mapping[edge["to"]],      # Reference the endEntity
+                    startEntity=entity_mapping[edge["from"]],
+                    endEntity=entity_mapping[edge["to"]],
                     name=edge["label"]
                 )
                 for edge in edges
@@ -59,31 +58,22 @@ with open(file_path, "r") as file:
         except Exception as e:
             print(f"Error processing record: {e}")
 
-end_time = time.time()
-print(f"File processing took {end_time - start_time:.2f} seconds.")
-
 # Create KnowledgeGraphs
-start_time = time.time()
 knowledge_graphs = [
     KnowledgeGraph(entities=entities, relationships=relationships)
     for entities, relationships in zip(entities_records, relationships_records)
 ]
-print(f"KnowledgeGraph creation took {time.time() - start_time:.2f} seconds.")
 
 # Embedding entities and relationships
-start_time = time.time()
 [kg.embed_entities(
     embeddings_function=lambda x: np.array(hf.embed_documents(x)),
     entity_label_weight=0.3,
     entity_name_weight=0.7
 ) for kg in knowledge_graphs]
-print(f"Entity embedding took {time.time() - start_time:.2f} seconds.")
 
-start_time = time.time()
 [kg.embed_relationships(
     embeddings_function=lambda x: np.array(hf.embed_documents(x))
 ) for kg in knowledge_graphs]
-print(f"Relationship embedding took {time.time() - start_time:.2f} seconds.")
 
 # Initialize the Matcher
 matcher = Matcher()
@@ -92,7 +82,6 @@ matcher = Matcher()
 combined_kg = knowledge_graphs[0]
 
 # Incrementally merge the rest of the graphs
-start_time = time.time()
 for idx, next_kg in enumerate(knowledge_graphs[1:], start=1):
     print(f"Merging KnowledgeGraph {idx + 1} into the combined graph...")
     
@@ -109,9 +98,5 @@ for idx, next_kg in enumerate(knowledge_graphs[1:], start=1):
     # Update the combined knowledge graph
     combined_kg = KnowledgeGraph(entities=combined_entities, relationships=combined_relationships)
 
-print(f"Graph merging took {time.time() - start_time:.2f} seconds.")
-
 # Visualize the combined KnowledgeGraph
-start_time = time.time()
 GraphIntegrator(uri=os.environ.get("URI"), username=os.environ.get("USERNAME"), password=os.environ.get("PASSWORD")).visualize_graph(knowledge_graph=combined_kg)
-print(f"Graph visualization took {time.time() - start_time:.2f} seconds.")
