@@ -3,7 +3,7 @@ import os
 import requests
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import File, FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 load_dotenv("../../.env", override=True)
@@ -12,6 +12,11 @@ client = openai.OpenAI(
     api_key=os.getenv("SAMBANOVA_API_KEY"),
     base_url="https://api.sambanova.ai/v1",
 )
+
+# client = openai.OpenAI(
+#     api_key="ollama",
+#     base_url="http://192.168.1.11:11434/v1",
+# )
 
 app = FastAPI()
 
@@ -64,6 +69,13 @@ async def chat(request: RAGRequest):
             temperature =  0.1,
             top_p = 0.1
         )
+
+        # response = client.chat.completions.create(
+        #     model='deepseek-r1:8b',
+        #     messages=messages,
+        #     temperature =  0.1,
+        #     top_p = 0.1
+        # )
 
         return {"response": response.choices[0].message.content}
 

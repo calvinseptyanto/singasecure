@@ -21,7 +21,7 @@ documents = df.apply(
         "page_content": row["Text"],
         "metadata": {"source": row["Link"]}
     },
-    axis=1
+    axis=1  
 ).tolist()
 
 add_documents_payload = {
