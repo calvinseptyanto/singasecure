@@ -88,15 +88,24 @@ def merge_knowledge_graphs(graphs):
 
     return combined_kg
 
-# Remove embeddings
+# Remove embeddings to allow saving of JSON
 def remove_embeddings(kg):
     def clear_embeddings(obj):
-        if hasattr(obj.properties, "embeddings"):
-            del obj.properties
+        if hasattr(obj.properties, 'embeddings'):
+            del obj.properties.embeddings
         return obj
+    
+    def clear_entity_embeddings(relationship):
+        if hasattr(relationship, 'startEntity'):
+            clear_embeddings(relationship.startEntity)
+        if hasattr(relationship, 'endEntity'):
+            clear_embeddings(relationship.endEntity)
+        return relationship
 
     kg.entities = list(map(clear_embeddings, kg.entities))
     kg.relationships = list(map(clear_embeddings, kg.relationships))
+    # Clear nested entities embeddings
+    kg.relationships = list(map(clear_entity_embeddings, kg.relationships))
     return kg
 
 # Convert KnowledgeGraph to JSON
@@ -105,16 +114,6 @@ def serialize_knowledge_graph(kg):
         "entities": [entity.model_dump() for entity in kg.entities],
         "relationships": [relationship.model_dump() for relationship in kg.relationships]
     }
-
-# # Save to MongoDB
-# def save_to_mongodb(data, db_name, collection_name):
-#     client = MongoClient("mongodb://localhost:27017/")
-#     db = client[db_name]
-#     collection = db[collection_name]
-#     collection.insert_one(data)
-#     print(f"Knowledge graph added to MongoDB successfully in '{collection_name}' collection.")
-
-# save_to_mongodb(combined_kg_json, "knowledge_graph", "knowledge_graphs")
 
 # Save JSON to file
 def save_to_file(data, file_path):
@@ -136,6 +135,7 @@ if __name__ == "__main__":
 
     # Prepare combined knowledge graph output
     combined_kg = remove_embeddings(combined_kg)
+
     combined_kg_json = serialize_knowledge_graph(combined_kg)
 
     output_file_path = "../../data/kg_data/combined_kg.json"

@@ -32,19 +32,6 @@ def test_add_documents():
     assert response.status_code == 200
     assert response.json() == {"message": "Documents added successfully."}
 
-# Test for deleting a document
-# def test_delete_document():
-#     # Use a placeholder document ID for testing
-#     response = client.delete(
-#         "/delete-document",
-#         json={
-#             "collection_name": "test_collection",
-#             "document_id": "test_document_id",
-#         },
-#     )
-#     assert response.status_code == 200
-#     assert response.json() == {"message": "Document with ID 'test_document_id' deleted successfully."}
-
 # Test for similarity search
 def test_similarity_search():
     response = client.post(

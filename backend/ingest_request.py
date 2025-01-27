@@ -1,16 +1,7 @@
 import requests
 import pandas as pd
 
-db_service = "http://localhost:8001/"
-
-response = requests.post(
-    db_service + "create-collection",
-    json={
-        "collection_name": "main",
-        "vector_size": 768,
-        "distance": "COSINE"
-    },
-)
+db_service = "http://localhost:8020/"
 
 print("Response:", response.status_code, response.text)
 
@@ -18,7 +9,7 @@ print("Response:", response.status_code, response.text)
 df = pd.read_csv("../data/news.csv")
 documents = df.apply(
     lambda row: {
-        "page_content": row["Text"],
+        "page_content": row["Text"] + "\n" + f"Sourced Link/Name: {row['Link']}",
         "metadata": {"source": row["Link"]}
     },
     axis=1  

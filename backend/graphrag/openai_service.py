@@ -79,7 +79,7 @@ async def main():
         # Perform hybrid search
         print(
             await rag.aquery(
-                "What happened to starbucks?",
+                "What happened to Starbucks and generate me a timeline of events that happened?",
                 param=QueryParam(mode="hybrid"),
             )
         )

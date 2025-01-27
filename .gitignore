@@ -4,3 +4,5 @@ backend/db/qdrant_storage
 llm/kg_data
 .env
 env
+backend/graphrag/local_neo4jWorkDir
+backend/graphrag/lightrag.log

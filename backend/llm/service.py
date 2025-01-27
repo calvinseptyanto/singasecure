@@ -43,14 +43,16 @@ async def chat(request: RAGRequest):
     
         context = "\nExtracted documents:\n"
         context += "".join([f"Document {str(i)}:::\n" + doc for i, doc in enumerate(retrieved_docs_text)])
+
         messages = [
             {
                 "role": "system",
                 "content": """Using the information contained in the context,
         give a comprehensive answer to the question.
         Respond only to the question asked, response should be concise and relevant to the question.
-        Provide the number of the source document when relevant.
-        If the answer cannot be deduced from the context, do not give an answer.""",
+        Provide the source document which is labelled after "Sourced Link/Name: " when relevant.
+        If the answer cannot be deduced from the context, explain to the user that there is insufficient context to support
+        the user's prompt.""",
             },
             {
                 "role": "user",
