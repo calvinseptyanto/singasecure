@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import TopicsPage from "@/pages/Topics";
 import WhatIfPage from "@/pages/WhatIf";
+import logo from "./assets/logo.png";
 
 export default function App() {
   return (
@@ -15,13 +16,16 @@ export default function App() {
           <div className="flex flex-col items-center py-4">
             {/* Logo */}
             <NavLink to="/" className="flex items-center gap-2 mb-4">
-              <div className="h-16 w-16 bg-purple-600 rounded-lg flex items-center justify-center text-white font-bold text-3xl">
-                S
-              </div>
-              <span className="text-6xl font-bold text-gray-900">SecureKG</span>
+              {/* Replace the purple 'S' div with your logo */}
+              <img
+                src={logo}
+                alt="SingaSecure Logo"
+                className="h-24 w-auto object-contain" // Adjust height as needed
+              />
+              {/* Remove the SecureKG text span if your logo contains text */}
             </NavLink>
 
-            {/* Navigation */}
+            {/* Navigation - Keep this section unchanged */}
             <nav className="flex space-x-8">
               <NavLink
                 to="/topics"
@@ -52,7 +56,7 @@ export default function App() {
         </div>
       </header>
 
-      <main className="pt-36 pb-8">
+      <main className="pt-48 pb-8">
         <Routes>
           <Route path="/topics" element={<TopicsPage />} />
           <Route path="/what-if" element={<WhatIfPage />} />
