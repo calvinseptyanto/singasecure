@@ -4,6 +4,7 @@ import {
   ChevronUp,
   MessageSquare,
   Loader2,
+  NotebookText, // New icon for analyst notes
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
@@ -43,6 +44,12 @@ export default function Overview({ expanded, setExpanded }) {
     setShowResponse(false);
     window.getSelection().empty();
   };
+
+  const analystNotes = [
+    "Increased phishing attempts targeting gov.sg domains observed since March 2024",
+    "Sector 3A infrastructure shows vulnerabilities to SCADA exploits - priority 1",
+    "APT group CoralRift suspected in recent healthcare data breaches",
+  ];
 
   useEffect(() => {
     if (!expanded) handleClose();
@@ -92,6 +99,31 @@ export default function Overview({ expanded, setExpanded }) {
           </button>
         </div>
       </div>
+
+      {/* Analysts' Notes Section */}
+      {expanded && (
+        <div className="mt-4 mb-6 p-4 bg-violet-50 rounded-lg border border-violet-200">
+          <div className="flex items-start gap-3 mb-3">
+            <NotebookText className="h-5 w-5 text-violet-600 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">
+                ISD Analyst Assessment
+              </h3>
+              <ul className="space-y-3">
+                {analystNotes.map((note, index) => (
+                  <li
+                    key={index}
+                    className="text-gray-700 text-sm leading-relaxed flex gap-2"
+                  >
+                    <span className="text-violet-600">•</span>
+                    {note}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Simulated LLM Response */}
       {showResponse && (

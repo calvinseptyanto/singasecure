@@ -39,7 +39,7 @@ export default function UniqueInfoPanel({ content }) {
             <span className="px-2 py-1 bg-white text-xs font-medium text-red-600 rounded-full border border-red-200">
               Uncorroborated
             </span>
-            <span className="px-2 py-1 bg-white text-xs font-medium text-blue-600 rounded-full border border-blue-200">
+            <span className="px-2 py-1 bg-white text-xs font-medium text-violet-600 rounded-full border border-violet-200">
               New Pattern
             </span>
           </div>

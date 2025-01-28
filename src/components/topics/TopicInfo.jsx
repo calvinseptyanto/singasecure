@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { MessageSquare, Loader2, NotebookText } from "lucide-react";
 
-export default function TopicInfo({ title, content, icon }) {
+export default function TopicInfo({ title, content, icon, analystNotes }) {
   const [selectedText, setSelectedText] = useState("");
   const [showClarificationBtn, setShowClarificationBtn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -88,6 +88,31 @@ export default function TopicInfo({ title, content, icon }) {
                 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
                 eiusmod tempor incididunt ut labore et dolore.
               </p>
+            </div>
+          )}
+
+          {/* Analyst Notes Section */}
+          {analystNotes && analystNotes.length > 0 && (
+            <div className="mt-4 p-4 bg-violet-50 rounded-lg border border-violet-200">
+              <div className="flex items-start gap-3 mb-3">
+                <NotebookText className="h-5 w-5 text-violet-600 flex-shrink-0" />
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-800 mb-2">
+                    ISD Analyst Notes
+                  </h4>
+                  <ul className="space-y-2">
+                    {analystNotes.map((note, index) => (
+                      <li
+                        key={index}
+                        className="text-gray-700 text-sm leading-relaxed flex gap-2"
+                      >
+                        <span className="text-violet-600">•</span>
+                        {note}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </div>
           )}
         </div>

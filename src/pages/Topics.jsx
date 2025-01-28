@@ -1,4 +1,3 @@
-// Topics.jsx
 import { useState } from "react";
 import {
   Search,
@@ -22,6 +21,22 @@ export default function TopicsPage() {
   const [expanded, setExpanded] = useState(false);
 
   const presetTopics = ["Terrorism", "Espionage", "Cybersecurity Threats"];
+
+  // Define analyst notes for each topic
+  const analystNotesData = {
+    Visibility: [
+      "Enhanced monitoring tools deployed across all critical infrastructure sectors.",
+      "Real-time threat detection systems have reduced response times by 30%.",
+    ],
+    Impact: [
+      "Potential financial losses estimated at $5M annually due to identified vulnerabilities.",
+      "Operational disruptions could affect up to 20% of key services.",
+    ],
+    Prioritization: [
+      "High-priority issues include unpatched software and exposed databases.",
+      "Medium-priority concerns involve outdated security protocols.",
+    ],
+  };
 
   return (
     <div className="container mx-auto p-4 lg:p-8 max-w-7xl">
@@ -88,16 +103,19 @@ export default function TopicsPage() {
           title="Visibility"
           content="Critical infrastructure vulnerabilities and threat vectors become visible through comprehensive analysis of current security landscapes."
           icon={<Eye className="h-6 w-6" />}
+          analystNotes={analystNotesData.Visibility}
         />
         <TopicInfo
           title="Impact"
           content="Quantitative risk assessment models reveal potential operational and financial impacts on organizational assets."
           icon={<BarChart className="h-6 w-6" />}
+          analystNotes={analystNotesData.Impact}
         />
         <TopicInfo
           title="Prioritization"
           content="Strategic framework for addressing vulnerabilities based on severity, exploitability, and potential damage mitigation."
           icon={<Target className="h-6 w-6" />}
+          analystNotes={analystNotesData.Prioritization}
         />
       </div>
     </div>
