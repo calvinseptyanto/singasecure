@@ -25,14 +25,12 @@ class TopicOverviewRequest(BaseModel):
 async def topic_overview(request: TopicOverviewRequest):
     """Generate topic overview and related information."""
     try:
-        topic_info = {}
-
         # Custom prompt for structured and detailed responses
-        custom_prompt = TOPICS_PROMPT
+        prompt = TOPICS_PROMPT
 
         # Post request to LLM
         llm_api = "http://localhost:8020/query"
-        chat_payload = {"query": request.query, "custom_prompt" : custom_prompt}
+        chat_payload = {"query": request.query, "prompt" : prompt}
 
         llm_response = requests.post(
             llm_api,
@@ -51,11 +49,11 @@ class WhatIfRequest(BaseModel):
 async def what_if_scenario(request: WhatIfRequest):
     """Generate analysis and insights for a 'what if' national security scenario."""
     try:
-        custom_prompt = WHAT_IF_PROMPT
+        prompt = WHAT_IF_PROMPT
 
         # Post request to LLM
         llm_api = "http://localhost:8020/query"
-        chat_payload = {"query": request.query, "custom_prompt" : custom_prompt}
+        chat_payload = {"query": request.query, "prompt" : prompt}
 
         llm_response = requests.post(
             llm_api,

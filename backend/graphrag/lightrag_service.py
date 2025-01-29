@@ -1,11 +1,12 @@
 from fastapi import FastAPI, HTTPException
+from dataclasses import asdict
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import os
 from lightrag import LightRAG, QueryParam
 from lightrag.llm.hf import hf_embed
-from lightrag.llm.ollama import ollama_model_complete
 from lightrag.llm.openai import openai_complete_if_cache
+from lightrag.operate import extract_keywords_only
 from lightrag.utils import EmbeddingFunc
 from transformers import AutoModel, AutoTokenizer
 from dotenv import load_dotenv
@@ -24,7 +25,7 @@ rag = LightRAG(
     working_dir=WORKING_DIR,
     graph_storage="Neo4JStorage",
     llm_model_func=lambda prompt, **kwargs: openai_complete_if_cache(
-        "Qwen2.5-72B-Instruct",
+        "Meta-Llama-3.1-70B-Instruct",
         prompt,
         api_key=os.getenv("SAMBANOVA_API_KEY"),
         base_url="https://api.sambanova.ai/v1",
@@ -70,29 +71,98 @@ async def query_documents(query_request: QueryRequest):
                 query = query_request.query, 
                 prompt = query_request.prompt, 
                 param=QueryParam(mode=query_request.mode, 
-                                 top_k=30)
+                                 top_k=15)
             )
         else:
             result = await rag.aquery(
                 query = query_request.query, 
                 param=QueryParam(mode=query_request.mode, 
-                                 top_k=30)
+                                 top_k=15)
             )
         return {"result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/get-kg")
-async def get_entire_kg():
-    async with neo4jstorage._driver.session(database=neo4jstorage._DATABASE) as session:
-        # Query to fetch filtered nodes
-        nodes_query = """
-        MATCH (n)
-        RETURN labels(n) as label, n.entity_type as group
-        LIMIT 1000
-        """
+class EntityRequest(BaseModel):
+    query: str
+    mode: str = 'hybrid'
+    k: int = 15
+    
+@app.post("/dynamic-kg-filtering")
+async def dynamic_kg_filtering(request: EntityRequest):
+    # Extract high and low-level keywords from query
+    hl_keywords, ll_keywords = await extract_keywords_only(
+        text=request.query,
+        param=QueryParam(mode=request.mode, top_k=request.k),
+        global_config=asdict(rag),
+        hashing_kv=rag.llm_response_cache
+    )
 
-        nodes = await session.run(nodes_query)
+    # Create a query string from extracted keywords
+    keywords_string = " ".join(set(hl_keywords + ll_keywords))
+
+    # Retrieve similar entities from the knowledge graph
+    results = await rag.entities_vdb.query(keywords_string, top_k=request.k)
+    entity_labels = [entity['entity_name'].strip('"') for entity in results]
+
+    if not entity_labels:
+        return {"message": "No relevant entities found for filtering."}
+
+    # Filter knowledge graph based on retrieved entity labels
+    kg_request = {"node_labels": entity_labels}
+    filtered_kg = await get_entire_kg(KGRequest(**kg_request))
+
+    return {
+        "filtered_kg": filtered_kg,
+        "entities": entity_labels
+    }
+
+class KGRequest(BaseModel):
+    node_labels: Optional[List[str]] = None  # Optional filter for node labels
+
+async def get_entire_kg(request: KGRequest):
+    async with neo4jstorage._driver.session(database=neo4jstorage._DATABASE) as session:
+        if request.node_labels:
+            # Query to fetch filtered nodes
+            nodes_query = """
+            MATCH (n)
+            WHERE ANY(label IN $labels WHERE label IN labels(n))
+            RETURN labels(n) as label, n.entity_type as group
+            LIMIT 1000
+            """
+
+            # Query to fetch filtered edges (ensure at least one node in the edge is part of the filtered labels)
+            edges_query = """
+            MATCH (n)-[r]->(m)
+            WHERE ANY(label IN $labels WHERE label IN labels(n)) 
+               OR ANY(label IN $labels WHERE label IN labels(m))
+            RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
+            """
+
+            # Execute queries
+            nodes = await session.run(nodes_query, labels=request.node_labels)
+            edges = await session.run(edges_query, labels=request.node_labels)
+
+        else:
+            # Query to fetch ALL nodes (up to 1000)
+            nodes_query = """
+            MATCH (n)
+            RETURN labels(n) as label, n.entity_type as group
+            LIMIT 1000
+            """
+
+            # Query to fetch ALL edges (up to 1000)
+            edges_query = """
+            MATCH (n)-[r]->(m)
+            RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
+            LIMIT 1000
+            """
+
+            # Execute queries
+            nodes = await session.run(nodes_query)
+            edges = await session.run(edges_query)
+
+        # Process query results
         nodes_list = [
             {
                 "label": record["label"],
@@ -101,13 +171,6 @@ async def get_entire_kg():
             async for record in nodes
         ]
 
-        # Query to fetch filtered edges
-        edges_query = """
-        MATCH (n)-[r]->(m)
-        RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
-        """
-
-        edges = await session.run(edges_query)
         edges_list = [
             {
                 "from": record["from"],
@@ -117,15 +180,14 @@ async def get_entire_kg():
             async for record in edges
         ]
 
+    # Close Neo4j connection
     neo4jstorage._driver.close()
 
-    # Combine nodes and edges into one dictionary
-    graph_data = {
+    # Return the knowledge graph
+    return {
         "nodes": nodes_list,
         "edges": edges_list
     }
-
-    return graph_data
 
 class EdgeModel(BaseModel):
     node_from: str
@@ -160,7 +222,7 @@ async def get_path_between_edges(request: EdgeModel):
 
 class SubGraphRequest(BaseModel):
     node_start: str
-    depth : int = 1
+    depth : int = 1 # 0 refers to neighbour nodes, 1 refers to neighbour of neighbours and so on
 
 @app.post("/sub-kg")
 async def get_sub_graph(request: SubGraphRequest):
