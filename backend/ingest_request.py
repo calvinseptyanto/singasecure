@@ -1,28 +1,29 @@
 import requests
 import pandas as pd
+import time
 
 db_service = "http://localhost:8020/"
 
-print("Response:", response.status_code, response.text)
-
 # Step 2: Add Documents to DB
 df = pd.read_csv("../data/news.csv")
-documents = df.apply(
-    lambda row: {
-        "page_content": row["Text"] + "\n" + f"Sourced Link/Name: {row['Link']}",
-        "metadata": {"source": row["Link"]}
-    },
-    axis=1  
-).tolist()
+documents = df["Text"].tolist()
 
-add_documents_payload = {
-    "collection_name": "main",
-    "documents": documents,
-}
+# Split the documents into chunks of 1 document per request
+# Since you can only send 20 requests per minute
+batch_size = 1
 
-response = requests.post(
-    db_service + "add-documents",
-    json=add_documents_payload
-)
-
-print("Response:", response.status_code, response.text)
+for i in range(0, len(documents), batch_size):
+    chunk = documents[i:i + batch_size]
+    add_documents_payload = {
+        "content": chunk
+    }
+    response = requests.post(
+        db_service + "add-documents",
+        json=add_documents_payload
+    )
+    
+    print(f"Response for batch {i // batch_size + 1}: {response.status_code}, {response.text}")
+    
+    # Delay of 3 seconds to stay within 20 requests per minute
+    if i + batch_size < len(documents):  # Skip delay after the last request
+        time.sleep(1)

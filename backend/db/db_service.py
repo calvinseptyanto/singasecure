@@ -52,24 +52,6 @@ def delete_document_endpoint(data: DeleteDocumentModel):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-class ContextModel(BaseModel):
-    collection_name : str
-    question: str
-    k: int = 5
-
-@app.post("/retrieve-context")
-def retrieve_context(data: ContextModel):
-    try:
-        print(data)
-        relevant_docs = similarity_search(collection_name = data.collection_name, 
-                                          question=data.question, 
-                                          k=data.k)
-        relevant_docs = [doc.page_content for doc in relevant_docs]  # Keep only the text
-        return {"context": relevant_docs}
-    
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
 class DeleteCollectionModel(BaseModel):
     collection_name: str
 
