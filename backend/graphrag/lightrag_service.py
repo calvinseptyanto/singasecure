@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv("../../.env")
 
+# Set up a working directory
 WORKING_DIR = "./local_neo4jWorkDir"
 if not os.path.exists(WORKING_DIR):
     os.mkdir(WORKING_DIR)
@@ -21,7 +22,8 @@ if not os.path.exists(WORKING_DIR):
 # Initialize FastAPI app
 app = FastAPI()
 
-rag = LightRAG(
+# Initialize the RAG engine
+rag_engine = LightRAG(
     working_dir=WORKING_DIR,
     graph_storage="Neo4JStorage",
     llm_model_func=lambda prompt, **kwargs: openai_complete_if_cache(
@@ -42,87 +44,244 @@ rag = LightRAG(
     ),
 )
 
-neo4jstorage = rag.chunk_entity_relation_graph
+neo4j_storage = rag_engine.chunk_entity_relation_graph
 
-class Document(BaseModel):
+# ---------------------
+#  Pydantic Models
+# ---------------------
+class DocumentPayload(BaseModel):
     content: List[str]
 
-@app.post("/add-documents")
-async def add_documents(doc: Document):
-    """Add documents to the backend."""
+class QueryPayload(BaseModel):
+    query: str
+    mode: str = "hybrid"  # Could be "naive", "local", "global", or "hybrid"
+    top_k: int = 15
+    prompt: Optional[str] = None
+
+class EntityFilterPayload(BaseModel):
+    query: str
+    mode: str = "hybrid"
+    top_k: int = 15
+
+class KGNodesPayload(BaseModel):
+    node_labels: Optional[List[str]] = None  # Optional filter for node labels
+
+class PathNodesPayload(BaseModel):
+    node_from: str
+    node_to: str
+
+class SubGraphPayload(BaseModel):
+    node_start: str
+    depth: int = 1  # 0 refers to neighbor nodes, 1 refers to neighbors of neighbors, etc.
+
+
+# ---------------------
+#  Route Handlers
+# ---------------------
+@app.post("/upload-documents")
+async def upload_documents(payload: DocumentPayload):
+    """
+    Upload documents to the knowledge graph.
+
+    Args:
+        payload (DocumentPayload): Contains a list of document contents to be inserted.
+
+    Returns:
+        dict: Success message indicating that documents were added.
+    """
     try:
-        await rag.ainsert(doc.content)
+        await rag_engine.ainsert(payload.content)
         return {"message": "Documents added successfully."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-    
-class QueryRequest(BaseModel):
-    query: str
-    mode: str = "hybrid"  # Can be "naive", "local", "global", or "hybrid"
-    top_k : int = 20
-    prompt : str = None
 
-@app.post("/query")
-async def query_documents(query_request: QueryRequest):
-    """Query the backend using the specified mode."""
+
+@app.post("/execute-query")
+async def execute_query(payload: QueryPayload):
+    """
+    Execute a query against the knowledge graph using a specified mode (e.g., naive, local, global, hybrid).
+
+    Args:
+        payload (QueryPayload): 
+            - query (str): The query text.
+            - mode (str): The query mode. Defaults to 'hybrid'.
+            - top_k (int): Number of top results to retrieve. Defaults to 20.
+            - prompt (str): Optional prompt to guide the query.
+
+    Returns:
+        dict: The result of the query operation.
+    """
     try:
-        if query_request.prompt:
-            result = await rag.aquery(
-                query = query_request.query, 
-                prompt = query_request.prompt, 
-                param=QueryParam(mode=query_request.mode, 
-                                 top_k=15)
+        if payload.prompt:
+            result = await rag_engine.aquery(
+                query=payload.query,
+                prompt=payload.prompt,
+                param=QueryParam(mode=payload.mode, top_k=payload.top_k),
             )
         else:
-            result = await rag.aquery(
-                query = query_request.query, 
-                param=QueryParam(mode=query_request.mode, 
-                                 top_k=15)
+            result = await rag_engine.aquery(
+                query=payload.query,
+                param=QueryParam(mode=payload.mode, top_k=payload.top_k),
             )
         return {"result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-class EntityRequest(BaseModel):
-    query: str
-    mode: str = 'hybrid'
-    k: int = 15
-    
-@app.post("/dynamic-kg-filtering")
-async def dynamic_kg_filtering(request: EntityRequest):
-    # Extract high and low-level keywords from query
-    hl_keywords, ll_keywords = await extract_keywords_only(
-        text=request.query,
-        param=QueryParam(mode=request.mode, top_k=request.k),
-        global_config=asdict(rag),
-        hashing_kv=rag.llm_response_cache
-    )
 
-    # Create a query string from extracted keywords
-    keywords_string = " ".join(set(hl_keywords + ll_keywords))
+@app.post("/filter-knowledge-graph")
+async def filter_knowledge_graph(payload: EntityFilterPayload):
+    """
+    Dynamically filter the knowledge graph based on extracted keywords from the provided query.
 
-    # Retrieve similar entities from the knowledge graph
-    results = await rag.entities_vdb.query(keywords_string, top_k=request.k)
-    entity_labels = [entity['entity_name'].strip('"') for entity in results]
+    Args:
+        payload (EntityFilterPayload):
+            - query (str): The user query from which to extract keywords.
+            - mode (str): Query mode (e.g., naive, local, global, hybrid). Defaults to 'hybrid'.
+            - top_k (int): Number of top results to consider. Defaults to 15.
 
-    if not entity_labels:
-        return {"message": "No relevant entities found for filtering."}
+    Returns:
+        dict: 
+            - filtered_kg: The subgraph filtered by relevant entities.
+            - entities: List of entity labels used in the filtering.
+    """
+    try:
+        # Extract high-level (hl) and low-level (ll) keywords from the query
+        hl_keywords, ll_keywords = await extract_keywords_only(
+            text=payload.query,
+            param=QueryParam(mode=payload.mode, top_k=payload.top_k),
+            global_config=asdict(rag_engine),
+            hashing_kv=rag_engine.llm_response_cache
+        )
 
-    # Filter knowledge graph based on retrieved entity labels
-    kg_request = {"node_labels": entity_labels}
-    filtered_kg = await get_entire_kg(KGRequest(**kg_request))
+        # Combine keywords into a single string
+        keywords_string = " ".join(set(hl_keywords + ll_keywords))
 
-    return {
-        "filtered_kg": filtered_kg,
-        "entities": entity_labels
-    }
+        # Retrieve similar entities from the knowledge graph
+        results = await rag_engine.entities_vdb.query(keywords_string, top_k=payload.top_k)
+        entity_labels = [entity["entity_name"].strip('"') for entity in results]
 
-class KGRequest(BaseModel):
-    node_labels: Optional[List[str]] = None  # Optional filter for node labels
+        if not entity_labels:
+            return {"message": "No relevant entities found for filtering."}
 
-async def get_entire_kg(request: KGRequest):
-    async with neo4jstorage._driver.session(database=neo4jstorage._DATABASE) as session:
-        if request.node_labels:
+        # Filter knowledge graph based on retrieved entity labels
+        filtered_kg = await retrieve_entire_kg(KGNodesPayload(node_labels=entity_labels))
+
+        return {
+            "filtered_kg": filtered_kg,
+            "entities": entity_labels
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/get-path-between-nodes")
+async def get_path_between_nodes(payload: PathNodesPayload):
+    """
+    Retrieve the path (or relationships) between two specific node labels in the graph.
+
+    Args:
+        payload (PathNodesPayload):
+            - node_from (str): The label of the starting node.
+            - node_to (str): The label of the ending node.
+
+    Returns:
+        dict: 
+            - edges: A list of edges that match the specified start and end node labels.
+    """
+    try:
+        async with neo4j_storage._driver.session(database=neo4j_storage._DATABASE) as session:
+            edges_query = f"""
+            MATCH (n:`{payload.node_from}`)-[r]->(m:`{payload.node_to}`)
+            RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
+            """
+
+            edges = await session.run(edges_query)
+            edges_list = [
+                {
+                    "from": record["from"],
+                    "to": record["to"],
+                    "label": record["label"]
+                }
+                async for record in edges
+            ]
+        neo4j_storage._driver.close()
+
+        return {
+            "edges": edges_list
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/retrieve-subgraph")
+async def retrieve_subgraph(payload: SubGraphPayload):
+    """
+    Retrieve a subgraph around a specified node label up to a certain depth.
+
+    Args:
+        payload (SubGraphPayload):
+            - node_start (str): The label of the starting node.
+            - depth (int): How many "hops" from the start node to include in the subgraph.
+
+    Returns:
+        dict: 
+            - nodes: A list of nodes (labels and group) in the subgraph.
+            - edges: A list of edges (relationship details) in the subgraph.
+    """
+    try:
+        async with neo4j_storage._driver.session(database=neo4j_storage._DATABASE) as session:
+            # Query to fetch nodes within the specified depth
+            nodes_query = f"""
+                MATCH (start:`{payload.node_start}`)-[*0..{payload.depth}]-(n)
+                RETURN DISTINCT labels(n) AS labels, n.entity_type AS group
+            """
+            nodes = await session.run(nodes_query)
+            nodes_list = [
+                {
+                    "label": record["labels"][0],  # Taking the first label if multiple
+                    "group": record["group"],
+                }
+                async for record in nodes
+            ]
+
+            # Query to fetch edges within the specified depth
+            edges_query = f"""
+                MATCH (start:`{payload.node_start}`)-[*0..{payload.depth}]-(n)-[r]->(m)
+                RETURN DISTINCT labels(n) AS from_labels, labels(m) AS to_labels, r.keywords AS label
+            """
+            edges = await session.run(edges_query)
+            edges_list = [
+                {
+                    "from": record["from_labels"][0],
+                    "to": record["to_labels"][0],
+                    "label": record["label"],
+                }
+                async for record in edges
+            ]
+
+        return {"nodes": nodes_list, "edges": edges_list}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ---------------------
+#  Helper Function
+# ---------------------
+async def retrieve_entire_kg(payload: KGNodesPayload):
+    """
+    Retrieve the entire knowledge graph or filter nodes and edges based on specified labels.
+
+    Args:
+        payload (KGNodesPayload):
+            - node_labels (List[str], optional): A list of node labels to filter. If None, fetches all.
+
+    Returns:
+        dict:
+            - nodes: A list of node information (labels and group).
+            - edges: A list of edges with relationship keywords.
+    """
+    async with neo4j_storage._driver.session(database=neo4j_storage._DATABASE) as session:
+        if payload.node_labels:
             # Query to fetch filtered nodes
             nodes_query = """
             MATCH (n)
@@ -131,33 +290,30 @@ async def get_entire_kg(request: KGRequest):
             LIMIT 1000
             """
 
-            # Query to fetch filtered edges (ensure at least one node in the edge is part of the filtered labels)
+            # Query to fetch filtered edges
             edges_query = """
             MATCH (n)-[r]->(m)
-            WHERE ANY(label IN $labels WHERE label IN labels(n)) 
+            WHERE ANY(label IN $labels WHERE label IN labels(n))
                OR ANY(label IN $labels WHERE label IN labels(m))
             RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
             """
 
             # Execute queries
-            nodes = await session.run(nodes_query, labels=request.node_labels)
-            edges = await session.run(edges_query, labels=request.node_labels)
-
+            nodes = await session.run(nodes_query, labels=payload.node_labels)
+            edges = await session.run(edges_query, labels=payload.node_labels)
         else:
-            # Query to fetch ALL nodes (up to 1000)
+            # Fetch all nodes (up to 1000)
             nodes_query = """
             MATCH (n)
             RETURN labels(n) as label, n.entity_type as group
             LIMIT 1000
             """
-
-            # Query to fetch ALL edges (up to 1000)
+            # Fetch all edges (up to 1000)
             edges_query = """
             MATCH (n)-[r]->(m)
             RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
             LIMIT 1000
             """
-
             # Execute queries
             nodes = await session.run(nodes_query)
             edges = await session.run(edges_query)
@@ -170,7 +326,6 @@ async def get_entire_kg(request: KGRequest):
             }
             async for record in nodes
         ]
-
         edges_list = [
             {
                 "from": record["from"],
@@ -181,85 +336,17 @@ async def get_entire_kg(request: KGRequest):
         ]
 
     # Close Neo4j connection
-    neo4jstorage._driver.close()
+    neo4j_storage._driver.close()
 
-    # Return the knowledge graph
     return {
         "nodes": nodes_list,
         "edges": edges_list
     }
 
-class EdgeModel(BaseModel):
-    node_from: str
-    node_to: str
 
-@app.post("/get-path")
-async def get_path_between_edges(request: EdgeModel):
-    async with neo4jstorage._driver.session(database=neo4jstorage._DATABASE) as session:
-        edges_query = f"""
-        MATCH (n:`{request.node_from}`)-[r]->(m:`{request.node_to}`)
-        RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
-        """
-
-        edges = await session.run(edges_query)
-        edges_list = [
-            {
-                "from": record["from"],
-                "to": record["to"],
-                "label": record["label"]
-            }
-            async for record in edges
-        ]
-
-    neo4jstorage._driver.close()
-
-    # Combine nodes and edges into one dictionary
-    graph_data = {
-        "edges": edges_list
-    }
-
-    return graph_data
-
-class SubGraphRequest(BaseModel):
-    node_start: str
-    depth : int = 1 # 0 refers to neighbour nodes, 1 refers to neighbour of neighbours and so on
-
-@app.post("/sub-kg")
-async def get_sub_graph(request: SubGraphRequest):
-    async with neo4jstorage._driver.session(database=neo4jstorage._DATABASE) as session:
-        # Dynamically construct the nodes query with the label and depth
-        nodes_query = f"""
-            MATCH (start:`{request.node_start}`)-[*0..{request.depth}]-(n)
-            RETURN DISTINCT labels(n) AS labels, n.entity_type AS group
-        """
-
-        nodes = await session.run(nodes_query)
-        nodes_list = [
-            {
-                "label": record["labels"][0],  # Assuming you want the first label
-                "group": record["group"],
-            }
-            async for record in nodes
-        ]
-
-        # Dynamically construct the edges query with the label and depth
-        edges_query = f"""
-            MATCH (start:`{request.node_start}`)-[*0..{request.depth}]-(n)-[r]->(m)
-            RETURN DISTINCT labels(n) AS from_labels, labels(m) AS to_labels, r.keywords AS label
-        """
-
-        edges = await session.run(edges_query)
-        edges_list = [
-            {
-                "from": record["from_labels"][0],  # Assuming you want the first label
-                "to": record["to_labels"][0],      # Assuming you want the first label
-                "label": record["label"],
-            }
-            async for record in edges
-        ]
-
-        return {"nodes": nodes_list, "edges": edges_list}
-
+# ---------------------
+#  Main Entry Point
+# ---------------------
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8020)
