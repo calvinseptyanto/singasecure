@@ -1,12 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-import os
-from lightrag import QueryParam
-from graphrag.lightrag_service import rag
-from lightrag.llm.openai import openai_complete_if_cache
-from lightrag.utils import EmbeddingFunc
-from transformers import AutoModel, AutoTokenizer
 from prompts import *
 from dotenv import load_dotenv
 import requests
@@ -29,7 +23,7 @@ async def topic_overview(request: TopicOverviewRequest):
         prompt = TOPICS_PROMPT
 
         # Post request to LLM
-        llm_api = "http://localhost:8020/query"
+        llm_api = "http://localhost:8020/execute-query"
         chat_payload = {"query": request.query, "prompt" : prompt}
 
         llm_response = requests.post(
@@ -52,7 +46,7 @@ async def what_if_scenario(request: WhatIfRequest):
         prompt = WHAT_IF_PROMPT
 
         # Post request to LLM
-        llm_api = "http://localhost:8020/query"
+        llm_api = "http://localhost:8020/execute-query"
         chat_payload = {"query": request.query, "prompt" : prompt}
 
         llm_response = requests.post(
