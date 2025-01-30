@@ -27,7 +27,7 @@ rag_engine = LightRAG(
     working_dir=WORKING_DIR,
     graph_storage="Neo4JStorage",
     llm_model_func=lambda prompt, **kwargs: openai_complete_if_cache(
-        "Meta-Llama-3.1-70B-Instruct",
+        "Meta-Llama-3.3-70B-Instruct",
         prompt,
         api_key=os.getenv("SAMBANOVA_API_KEY"),
         base_url="https://api.sambanova.ai/v1",
@@ -46,11 +46,13 @@ rag_engine = LightRAG(
 
 neo4j_storage = rag_engine.chunk_entity_relation_graph
 
+
 # ---------------------
 #  Pydantic Models
 # ---------------------
 class DocumentPayload(BaseModel):
     content: List[str]
+
 
 class QueryPayload(BaseModel):
     query: str
@@ -58,17 +60,21 @@ class QueryPayload(BaseModel):
     top_k: int = 15
     prompt: Optional[str] = None
 
+
 class EntityFilterPayload(BaseModel):
     query: str
     mode: str = "hybrid"
     top_k: int = 15
 
+
 class KGNodesPayload(BaseModel):
     node_labels: Optional[List[str]] = None  # Optional filter for node labels
+
 
 class PathNodesPayload(BaseModel):
     node_from: str
     node_to: str
+
 
 class SubGraphPayload(BaseModel):
     node_start: str
@@ -102,10 +108,10 @@ async def execute_query(payload: QueryPayload):
     Execute a query against the knowledge graph using a specified mode (e.g., naive, local, global, hybrid).
 
     Args:
-        payload (QueryPayload): 
+        payload (QueryPayload):
             - query (str): The query text.
             - mode (str): The query mode. Defaults to 'hybrid'.
-            - top_k (int): Number of top results to retrieve. Defaults to 20.
+            - top_k (int): Number of top results to retrieve. Defaults to 15.
             - prompt (str): Optional prompt to guide the query.
 
     Returns:
@@ -140,7 +146,7 @@ async def filter_knowledge_graph(payload: EntityFilterPayload):
             - top_k (int): Number of top results to consider. Defaults to 15.
 
     Returns:
-        dict: 
+        dict:
             - filtered_kg: The subgraph filtered by relevant entities.
             - entities: List of entity labels used in the filtering.
     """
@@ -166,10 +172,8 @@ async def filter_knowledge_graph(payload: EntityFilterPayload):
         # Filter knowledge graph based on retrieved entity labels
         filtered_kg = await retrieve_entire_kg(KGNodesPayload(node_labels=entity_labels))
 
-        return {
-            "filtered_kg": filtered_kg,
-            "entities": entity_labels
-        }
+        return filtered_kg
+    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -185,29 +189,32 @@ async def get_path_between_nodes(payload: PathNodesPayload):
             - node_to (str): The label of the ending node.
 
     Returns:
-        dict: 
+        dict:
             - edges: A list of edges that match the specified start and end node labels.
     """
     try:
         async with neo4j_storage._driver.session(database=neo4j_storage._DATABASE) as session:
             edges_query = f"""
-            MATCH (n:`{payload.node_from}`)-[r]->(m:`{payload.node_to}`)
-            RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
+            MATCH p = (n:`{payload.node_from}`)-[*]->(m:`{payload.node_to}`)
+            RETURN
+                [node IN nodes(p) | labels(node)] AS path_nodes,
+                [node IN nodes(p) | node.description] AS node_descriptions,
+                [rel IN relationships(p) | rel.keywords] AS path_labels,
+                [rel IN relationships(p) | rel.description] AS relationship_descriptions
             """
 
             edges = await session.run(edges_query)
             edges_list = [
                 {
-                    "from": record["from"],
-                    "to": record["to"],
-                    "label": record["label"]
+                    "path_nodes": [node[0] for node in record["path_nodes"]],
+                    "path_labels": record["path_labels"],
                 }
                 async for record in edges
             ]
         neo4j_storage._driver.close()
 
         return {
-            "edges": edges_list
+            "paths": edges_list
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -224,8 +231,8 @@ async def retrieve_subgraph(payload: SubGraphPayload):
             - depth (int): How many "hops" from the start node to include in the subgraph.
 
     Returns:
-        dict: 
-            - nodes: A list of nodes (labels and group) in the subgraph.
+        dict:
+            - nodes: A list of nodes (labels, group, description) in the subgraph.
             - edges: A list of edges (relationship details) in the subgraph.
     """
     try:
@@ -233,13 +240,17 @@ async def retrieve_subgraph(payload: SubGraphPayload):
             # Query to fetch nodes within the specified depth
             nodes_query = f"""
                 MATCH (start:`{payload.node_start}`)-[*0..{payload.depth}]-(n)
-                RETURN DISTINCT labels(n) AS labels, n.entity_type AS group
+                RETURN DISTINCT
+                    labels(n) AS labels,
+                    n.entity_type AS group,
+                    n.description AS description
             """
             nodes = await session.run(nodes_query)
             nodes_list = [
                 {
                     "label": record["labels"][0],  # Taking the first label if multiple
                     "group": record["group"],
+                    "description": record["description"],
                 }
                 async for record in nodes
             ]
@@ -247,14 +258,23 @@ async def retrieve_subgraph(payload: SubGraphPayload):
             # Query to fetch edges within the specified depth
             edges_query = f"""
                 MATCH (start:`{payload.node_start}`)-[*0..{payload.depth}]-(n)-[r]->(m)
-                RETURN DISTINCT labels(n) AS from_labels, labels(m) AS to_labels, r.keywords AS label
+                RETURN DISTINCT
+                    labels(n) AS from_labels,
+                    n.description AS from_description,
+                    labels(m) AS to_labels,
+                    m.description AS to_description,
+                    r.keywords AS label,
+                    r.description AS relationship_description
             """
             edges = await session.run(edges_query)
             edges_list = [
                 {
-                    "from": record["from_labels"][0],
-                    "to": record["to_labels"][0],
+                    "from_label": record["from_labels"][0],
+                    "from_description": record["from_description"],
+                    "to_label": record["to_labels"][0],
+                    "to_description": record["to_description"],
                     "label": record["label"],
+                    "relationship_description": record["relationship_description"],
                 }
                 async for record in edges
             ]
@@ -277,8 +297,8 @@ async def retrieve_entire_kg(payload: KGNodesPayload):
 
     Returns:
         dict:
-            - nodes: A list of node information (labels and group).
-            - edges: A list of edges with relationship keywords.
+            - nodes: A list of node information (labels, group, description).
+            - edges: A list of edges with relationship keywords and descriptions.
     """
     async with neo4j_storage._driver.session(database=neo4j_storage._DATABASE) as session:
         if payload.node_labels:
@@ -286,7 +306,10 @@ async def retrieve_entire_kg(payload: KGNodesPayload):
             nodes_query = """
             MATCH (n)
             WHERE ANY(label IN $labels WHERE label IN labels(n))
-            RETURN labels(n) as label, n.entity_type as group
+            RETURN
+                labels(n) AS label,
+                n.entity_type AS group,
+                n.description AS description
             LIMIT 1000
             """
 
@@ -295,42 +318,63 @@ async def retrieve_entire_kg(payload: KGNodesPayload):
             MATCH (n)-[r]->(m)
             WHERE ANY(label IN $labels WHERE label IN labels(n))
                OR ANY(label IN $labels WHERE label IN labels(m))
-            RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
+            RETURN
+                labels(n) AS from,
+                n.description AS from_description,
+                labels(m) AS to,
+                m.description AS to_description,
+                r.keywords AS label,
+                r.description AS relationship_description
             """
-
             # Execute queries
             nodes = await session.run(nodes_query, labels=payload.node_labels)
             edges = await session.run(edges_query, labels=payload.node_labels)
+
         else:
             # Fetch all nodes (up to 1000)
             nodes_query = """
             MATCH (n)
-            RETURN labels(n) as label, n.entity_type as group
+            RETURN
+                labels(n) AS label,
+                n.entity_type AS group,
+                n.description AS description
             LIMIT 1000
             """
             # Fetch all edges (up to 1000)
             edges_query = """
             MATCH (n)-[r]->(m)
-            RETURN labels(n) AS from, labels(m) AS to, r.keywords AS label
+            RETURN
+                labels(n) AS from,
+                n.description AS from_description,
+                labels(m) AS to,
+                m.description AS to_description,
+                r.keywords AS label,
+                r.description AS relationship_description
             LIMIT 1000
             """
             # Execute queries
             nodes = await session.run(nodes_query)
             edges = await session.run(edges_query)
 
-        # Process query results
+        # Process query results for nodes
         nodes_list = [
             {
-                "label": record["label"],
+                "label": record["label"][0],
                 "group": record["group"],
+                "description": record["description"],
             }
             async for record in nodes
         ]
+
+        # Process query results for edges
         edges_list = [
             {
-                "from": record["from"],
-                "to": record["to"],
-                "label": record["label"]
+                "from_label": record["from"],
+                "from_description": record["from_description"],
+                "to_label": record["to"],
+                "to_description": record["to_description"],
+                "label": record["label"],
+                "relationship_description": record["relationship_description"],
             }
             async for record in edges
         ]
