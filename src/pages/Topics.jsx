@@ -1,3 +1,5 @@
+// Topics.jsx
+
 import { useState } from "react";
 import {
   Search,
@@ -6,19 +8,29 @@ import {
   Eye,
   BarChart,
   Target,
+  Loader2, // Ensure Loader2 is imported
 } from "lucide-react";
 import Articles from "@/components/topics/Articles";
 import Overview from "@/components/topics/Overview";
 import TopicInfo from "@/components/topics/TopicInfo";
 import KnowledgeGraph from "@/components/topics/KnowledgeGraph";
-
-// Import your new component
 import PathwayFinder from "@/components/topics/PathwayFinder";
+import NodeExplorer from "@/components/topics/NodeExplorer";
 
 export default function TopicsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTopic, setSelectedTopic] = useState("");
   const [expanded, setExpanded] = useState(false);
+
+  // New state variables for API integration
+  const [overviewData, setOverviewData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  // New state variables for Knowledge Graph
+  const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
+  const [graphLoading, setGraphLoading] = useState(false);
+  const [graphError, setGraphError] = useState(null);
 
   const presetTopics = ["Terrorism", "Espionage", "Cybersecurity Threats"];
 
@@ -38,6 +50,83 @@ export default function TopicsPage() {
     ],
   };
 
+  // Handler for search action
+  const handleSearch = async () => {
+    setIsLoading(true);
+    setError(null);
+    setOverviewData(null);
+
+    try {
+      const response = await fetch("http://0.0.0.0:8020/execute-query", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ query: searchQuery }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      // data should look like: { "result": "## Some markdown content..." }
+      setOverviewData(data);
+
+      // Fetch knowledge graph data based on the search query
+      fetchKnowledgeGraph(searchQuery);
+    } catch (err) {
+      setError("Failed to fetch overview data. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Function to fetch knowledge graph data
+  const fetchKnowledgeGraph = async (query) => {
+    setGraphLoading(true);
+    setGraphError(null);
+    setGraphData({ nodes: [], edges: [] });
+
+    try {
+      const response = await fetch(
+        "http://0.0.0.0:8020/filter-knowledge-graph",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ query }), // Adjust based on API requirements
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Error: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      setGraphData(data);
+    } catch (err) {
+      setGraphError("Failed to fetch knowledge graph data. Please try again.");
+    } finally {
+      setGraphLoading(false);
+    }
+  };
+
+  // Optional: Handle Enter key press in the search input
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      handleSearch();
+    }
+  };
+
+  // Handler for clicking on a popular topic
+  const handlePresetTopicClick = (topic) => {
+    setSelectedTopic(topic);
+    setSearchQuery(topic);
+    fetchKnowledgeGraph(topic); // Fetch knowledge graph data based on the preset topic
+  };
+
   return (
     <div className="container mx-auto p-4 lg:p-8 max-w-7xl">
       {/* Search and Topics Section */}
@@ -49,12 +138,28 @@ export default function TopicsPage() {
               placeholder="Search national security topics..."
               className="w-full pl-10 pr-4 py-4 rounded-xl text-base border-2 border-gray-200 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setSelectedTopic(""); // Clear selected topic when user types manually
+              }}
+              onKeyPress={handleKeyPress} // Add key press handler
             />
           </div>
-          <button className="px-6 py-4 bg-purple-200 text-purple-600 rounded-xl hover:bg-purple-700 hover:text-white transition-colors flex items-center justify-center gap-2 sm:w-auto w-full">
-            <Search className="h-5 w-5" />
-            <span className="hidden sm:inline">Search</span>
+          <button
+            onClick={handleSearch} // Add onClick handler
+            className={`px-6 py-4 bg-purple-200 text-purple-600 rounded-xl hover:bg-purple-700 hover:text-white transition-colors flex items-center justify-center gap-2 sm:w-auto w-full ${
+              isLoading ? "opacity-50 cursor-not-allowed" : ""
+            }`}
+            disabled={isLoading} // Disable button while loading
+          >
+            {isLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <>
+                <Search className="h-5 w-5" />
+                <span className="hidden sm:inline">Search</span>
+              </>
+            )}
           </button>
         </div>
 
@@ -67,7 +172,7 @@ export default function TopicsPage() {
             {presetTopics.map((topic) => (
               <button
                 key={topic}
-                onClick={() => setSelectedTopic(topic)}
+                onClick={() => handlePresetTopicClick(topic)} // Updated onClick handler
                 className={`px-4 py-2 rounded-full flex items-center gap-2 ${
                   selectedTopic === topic
                     ? "bg-purple-600 text-white hover:bg-purple-700"
@@ -83,19 +188,26 @@ export default function TopicsPage() {
       </div>
 
       {/* Overview */}
-      <Overview expanded={expanded} setExpanded={setExpanded} />
+      <Overview
+        expanded={expanded}
+        setExpanded={setExpanded}
+        overviewData={overviewData} // Pass overview data
+        error={error} // Pass error state
+      />
 
       {/* Articles & Knowledge Graph */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 my-8">
         <Articles />
-        <KnowledgeGraph />
+        <KnowledgeGraph
+          nodes={graphData.nodes}
+          edges={graphData.edges}
+          loading={graphLoading}
+          error={graphError}
+        />
       </div>
 
-      {/* 
-        Insert PathwayFinder here, 
-        just above the "Info Boxes" as requested 
-      */}
       <PathwayFinder />
+      <NodeExplorer />
 
       {/* Info Boxes */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">

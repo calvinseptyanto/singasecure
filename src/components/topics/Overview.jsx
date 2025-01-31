@@ -4,17 +4,24 @@ import {
   ChevronUp,
   MessageSquare,
   Loader2,
-  NotebookText, // New icon for analyst notes
+  NotebookText,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
-export default function Overview({ expanded, setExpanded }) {
+export default function Overview({
+  expanded,
+  setExpanded,
+  overviewData,
+  error,
+}) {
   const [selectedText, setSelectedText] = useState("");
   const [showClarificationBtn, setShowClarificationBtn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showResponse, setShowResponse] = useState(false);
 
-  const handleTextSelect = (e) => {
+  const handleTextSelect = () => {
     const selection = window.getSelection();
     const text = selection.toString().trim();
 
@@ -54,6 +61,9 @@ export default function Overview({ expanded, setExpanded }) {
   useEffect(() => {
     if (!expanded) handleClose();
   }, [expanded]);
+
+  const contentSections = overviewData?.result.split(/\n## /);
+  const firstSection = contentSections?.[0];
 
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 relative">
@@ -100,7 +110,7 @@ export default function Overview({ expanded, setExpanded }) {
         </div>
       </div>
 
-      {/* Analysts' Notes Section */}
+      {/* Analyst's Notes Section */}
       {expanded && (
         <div className="mt-4 mb-6 p-4 bg-violet-50 rounded-lg border border-violet-200">
           <div className="flex items-start gap-3 mb-3">
@@ -125,7 +135,121 @@ export default function Overview({ expanded, setExpanded }) {
         </div>
       )}
 
-      {/* Simulated LLM Response */}
+      {/* Display API Error */}
+      {error && (
+        <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* If we have overviewData, show the returned markdown. Otherwise, show a placeholder text */}
+      {overviewData ? (
+        <div
+          className="mt-4 p-6 bg-gray-50 rounded-lg border border-gray-200"
+          onMouseUp={handleTextSelect}
+        >
+          {expanded ? (
+            <ReactMarkdown
+              className="prose max-w-none text-gray-700 space-y-6"
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h3: ({ node, ...props }) => (
+                  <h3
+                    className="text-lg font-bold text-gray-900 py-3 border-b border-gray-200 bg-gray-50 px-4 -mx-4 my-4 
+        first:border-t-0 relative
+        before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-purple-200"
+                    {...props}
+                  />
+                ),
+                h4: ({ node, ...props }) => (
+                  <h4
+                    className="text-base font-semibold text-gray-800 mt-6 mb-3"
+                    {...props}
+                  />
+                ),
+                p: ({ node, ...props }) => (
+                  <p
+                    className="text-gray-700 leading-relaxed mb-4 pl-4"
+                    {...props}
+                  />
+                ),
+                ul: ({ node, ...props }) => (
+                  <ul
+                    className="list-disc pl-8 space-y-2 mb-6 border-l-2 border-purple-100"
+                    {...props}
+                  />
+                ),
+                li: ({ node, ...props }) => (
+                  <li className="pl-2 marker:text-purple-400" {...props} />
+                ),
+                strong: ({ node, ...props }) => (
+                  <strong className="font-semibold text-gray-900" {...props} />
+                ),
+              }}
+            >
+              {overviewData.result}
+            </ReactMarkdown>
+          ) : (
+            <div className="line-clamp-[8]">
+              <ReactMarkdown
+                className="prose max-w-none text-gray-700"
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  h3: ({ node, ...props }) => (
+                    <h3
+                      className="text-lg font-bold text-gray-900 py-3 border-b border-gray-200 bg-gray-50 px-4 -mx-4 mt-0 mb-4 
+            before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-purple-200"
+                      {...props}
+                    />
+                  ),
+                  p: ({ node, ...props }) => (
+                    <p
+                      className="text-gray-700 leading-relaxed mb-4 pl-4"
+                      {...props}
+                    />
+                  ),
+                  ul: ({ node, ...props }) => (
+                    <ul
+                      className="list-disc pl-8 space-y-2 mb-4 border-l-2 border-purple-100"
+                      {...props}
+                    />
+                  ),
+                  li: ({ node, ...props }) => (
+                    <li className="pl-2 marker:text-purple-400" {...props} />
+                  ),
+                  strong: ({ node, ...props }) => (
+                    <strong
+                      className="font-semibold text-gray-900"
+                      {...props}
+                    />
+                  ),
+                }}
+              >
+                {firstSection}
+              </ReactMarkdown>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div
+          onMouseUp={handleTextSelect}
+          className={`selectable-content text-gray-600 ${
+            expanded ? "" : "line-clamp-3"
+          } transition-all`}
+        >
+          <p
+            className={`text-gray-600 ${
+              expanded ? "" : "line-clamp-3"
+            } transition-all`}
+          >
+            {/* Placeholder text when no data is returned yet */}
+            Nothing to display yet. Try searching for a topic or clicking one of
+            the popular topics above.
+          </p>
+        </div>
+      )}
+
+      {/* Simulated LLM Response for "Explain selected text" */}
       {showResponse && (
         <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 animate-fade-in">
           <div className="flex justify-between items-start mb-2">
@@ -141,64 +265,12 @@ export default function Overview({ expanded, setExpanded }) {
             </button>
           </div>
           <p className="text-gray-600 text-sm leading-relaxed">
-            Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
-            eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-            ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-            aliquip ex ea commodo consequat.
+            {/* Example text from an LLM or placeholder */}
+            This is where the large language model explanation for “
+            {selectedText}” would appear.
           </p>
         </div>
       )}
-      <div
-        onMouseUp={handleTextSelect}
-        className={`selectable-content text-gray-600 ${
-          expanded ? "" : "line-clamp-3"
-        } transition-all`}
-      >
-        <p
-          className={`text-gray-600 ${
-            expanded ? "" : "line-clamp-3"
-          } transition-all`}
-        >
-          Lorem ipsum odor amet, consectetuer adipiscing elit. Potenti sit sed
-          tempus vehicula massa dis ad. Eros ut egestas faucibus; nulla nunc
-          iaculis. Vivamus adipiscing aptent ridiculus dignissim urna elit
-          ullamcorper dis. Cubilia dolor blandit feugiat quis quam suscipit
-          interdum praesent. Ex aliquet vel ridiculus malesuada metus
-          condimentum netus. Dictum tincidunt turpis mattis non mollis neque
-          finibus luctus mauris. Vel quisque libero eros vivamus ac habitant
-          odio. Eu lectus vestibulum feugiat blandit cubilia litora nam aenean.
-          Vestibulum consequat ornare ut iaculis; fermentum blandit. Elit leo
-          elit elit, posuere aenean dapibus. Integer aliquet euismod turpis
-          tristique morbi mollis malesuada faucibus tempus. Faucibus sapien
-          imperdiet ligula conubia mi cras scelerisque porttitor maecenas.
-          Mattis ex libero amet lorem elit risus non a. Sapien dapibus quis
-          pellentesque turpis ridiculus suscipit. Cras curae fusce efficitur
-          parturient laoreet vel; netus nostra vel. Euismod vestibulum eget non
-          velit habitasse euismod; dignissim varius. Dolor sociosqu conubia dui
-          fermentum velit at potenti egestas dolor? Faucibus ac at commodo per
-          maecenas nec. Justo ornare maecenas vestibulum sapien maecenas a
-          dignissim diam sem. Eu eget nullam odio cursus dui habitant. Dignissim
-          mauris hac leo magna orci at tristique congue. Fusce cubilia felis
-          integer libero bibendum vitae. Dictum cubilia nisl lectus viverra
-          placerat potenti sapien. Ullamcorper rutrum venenatis nullam a
-          parturient. Senectus nascetur varius ultricies maecenas lobortis
-          viverra parturient curabitur. Metus ultrices in diam etiam a,
-          phasellus consectetur vulputate. Conubia laoreet libero mi porta
-          conubia dui malesuada consectetur. Orci habitasse justo vitae, enim
-          efficitur laoreet. Duis per interdum massa varius iaculis hendrerit
-          orci. Litora fusce primis pretium lorem lacus mi, cursus aenean.
-          Vehicula fames finibus suspendisse porta nulla, sagittis rhoncus ac.
-          Congue ultrices vehicula quis primis porttitor mi. Phasellus porttitor
-          molestie habitant aliquet posuere tortor ad at. Netus mattis ultrices
-          primis rhoncus etiam in netus duis mi. Vestibulum vel quisque rhoncus
-          lectus leo; vehicula tristique. Vel bibendum ullamcorper praesent,
-          euismod sagittis luctus parturient mattis. Pellentesque sodales ipsum
-          malesuada accumsan consequat mattis. Euismod fusce primis pharetra
-          vestibulum proin convallis. Nullam urna tempor nostra accumsan porta
-          commodo euismod velit. Sed finibus nisi lacus per; metus tempor vitae
-          consectetur.
-        </p>
-      </div>
     </div>
   );
 }
