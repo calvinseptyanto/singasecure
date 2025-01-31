@@ -221,6 +221,7 @@ async def get_path_between_nodes(payload: PathNodesPayload):
 
 
 @app.post("/retrieve-subgraph")
+@app.post("/retrieve-subgraph")
 async def retrieve_subgraph(payload: SubGraphPayload):
     """
     Retrieve a subgraph around a specified node label up to a certain depth.
@@ -260,8 +261,10 @@ async def retrieve_subgraph(payload: SubGraphPayload):
                 MATCH (start:`{payload.node_start}`)-[*0..{payload.depth}]-(n)-[r]->(m)
                 RETURN DISTINCT
                     labels(n) AS from_labels,
+                    n.entity_type AS from_group,
                     n.description AS from_description,
                     labels(m) AS to_labels,
+                    m.entity_type AS to_group,
                     m.description AS to_description,
                     r.keywords AS label,
                     r.description AS relationship_description
@@ -270,8 +273,10 @@ async def retrieve_subgraph(payload: SubGraphPayload):
             edges_list = [
                 {
                     "from_label": record["from_labels"][0],
+                    "from_group": record["from_group"],  # Extracted from n.entity_type
                     "from_description": record["from_description"],
                     "to_label": record["to_labels"][0],
+                    "to_group": record["to_group"],  # Extracted from m.entity_type
                     "to_description": record["to_description"],
                     "label": record["label"],
                     "relationship_description": record["relationship_description"],
@@ -310,18 +315,19 @@ async def retrieve_entire_kg(payload: KGNodesPayload):
                 labels(n) AS label,
                 n.entity_type AS group,
                 n.description AS description
-            LIMIT 1000
             """
 
-            # Query to fetch filtered edges
+            # Query to fetch filtered edges with from_group and to_group
             edges_query = """
             MATCH (n)-[r]->(m)
             WHERE ANY(label IN $labels WHERE label IN labels(n))
                OR ANY(label IN $labels WHERE label IN labels(m))
             RETURN
                 labels(n) AS from,
+                n.entity_type AS from_group,
                 n.description AS from_description,
                 labels(m) AS to,
+                m.entity_type AS to_group,
                 m.description AS to_description,
                 r.keywords AS label,
                 r.description AS relationship_description
@@ -331,26 +337,26 @@ async def retrieve_entire_kg(payload: KGNodesPayload):
             edges = await session.run(edges_query, labels=payload.node_labels)
 
         else:
-            # Fetch all nodes (up to 1000)
+            # Fetch all nodes
             nodes_query = """
             MATCH (n)
             RETURN
                 labels(n) AS label,
                 n.entity_type AS group,
                 n.description AS description
-            LIMIT 1000
             """
-            # Fetch all edges (up to 1000)
+            # Fetch all edges with from_group and to_group
             edges_query = """
             MATCH (n)-[r]->(m)
             RETURN
                 labels(n) AS from,
+                n.entity_type AS from_group,
                 n.description AS from_description,
                 labels(m) AS to,
+                m.entity_type AS to_group,
                 m.description AS to_description,
                 r.keywords AS label,
                 r.description AS relationship_description
-            LIMIT 1000
             """
             # Execute queries
             nodes = await session.run(nodes_query)
@@ -370,8 +376,10 @@ async def retrieve_entire_kg(payload: KGNodesPayload):
         edges_list = [
             {
                 "from_label": record["from"],
+                "from_group": record["from_group"],  # Extracted from n.entity_type
                 "from_description": record["from_description"],
                 "to_label": record["to"],
+                "to_group": record["to_group"],  # Extracted from m.entity_type
                 "to_description": record["to_description"],
                 "label": record["label"],
                 "relationship_description": record["relationship_description"],

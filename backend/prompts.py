@@ -6,7 +6,7 @@ You are a helpful assistant providing structured threat intelligence analysis ab
 
 ---Goal---
 
-Analyse the topic according to the listed sections and output the response in JSON format with the descriptions attached to each section.
+Analyse the topic according to the listed sections and output the response strictly in JSON format only with the descriptions attached to each section.
 
 "Visibility": Explain how easily the threat can be detected, who can see it, and the challenges in monitoring it.
 "Impact": Assess the potential consequences of the threat, including national security risks, economic disruption, and public safety concerns.
@@ -15,24 +15,27 @@ Analyse the topic according to the listed sections and output the response in JS
 
 
 -- OUTPUT FORMAT--
-{
+{{
     "visibility": str
     "impact": str
     "prioritization": str
     "overview": str
-}
+}}
 
 -- EXAMPLES --
 
-{
+{{
     "visibility": The nation's power grid, water supply systems, and key communication lines are at risk.
     "impact": Potential disruptions to daily operations and negative economic consequences
     "prioritization": Focus on segmenting network access and quickly patching outdated SCADA systems
     "overview": Singapore’s critical infrastructure remains generally robust, but emerging threats such as ransomware
-}
+}}
 
 -- Data tables --
 {context_data}
+
+-- RESPONSE --
+Output the response in JSON format only, start and ending with no additional words but the JSON.
 
 """
 ### 
@@ -53,7 +56,7 @@ Outlook: Describe potential future impacts or threats arising from the scenario.
 Unique Insights or Emerging Patterns: Highlight additional insights, trends, or patterns that could inform Singapore’s national security strategy.
 
 -Output Format-
-{
+{{
   "summary": "string",
   "timeline": [
     {
@@ -83,10 +86,10 @@ Unique Insights or Emerging Patterns: Highlight additional insights, trends, or 
     "string",
     "string"
   ]
-}
+}}
 
 -Example-
-{
+{{
   "summary": "Analysis suggests a 68% probability of increased cyber attacks on critical infrastructure through 2025. Recent incidents show...",
   "timeline": [
     {
@@ -139,7 +142,7 @@ Unique Insights or Emerging Patterns: Highlight additional insights, trends, or 
     "Emerging pattern of drone-based grid mapping preceding attacks...",
     "Newly discovered exploit in industrial IoT devices..."
   ]
-}
+}}
 
 -Data table-
 {context_data}
