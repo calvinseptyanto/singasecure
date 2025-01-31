@@ -1,9 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 from prompts import *
 from dotenv import load_dotenv
 import requests
+import json
 
 # Load environment variables
 load_dotenv("../../.env")
@@ -31,7 +31,9 @@ async def topic_overview(request: TopicOverviewRequest):
             json=chat_payload
         )
 
-        return llm_response.json()["result"]
+        result_string = llm_response.json()["result"]
+        result_json = json.loads(result_string)
+        return result_json
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -54,7 +56,9 @@ async def what_if_scenario(request: WhatIfRequest):
             json=chat_payload
         )
 
-        return llm_response.json()["result"]
+        result_string = llm_response.json()["result"]
+        result_json = json.loads(result_string)
+        return result_json
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
