@@ -221,7 +221,6 @@ async def get_path_between_nodes(payload: PathNodesPayload):
 
 
 @app.post("/retrieve-subgraph")
-@app.post("/retrieve-subgraph")
 async def retrieve_subgraph(payload: SubGraphPayload):
     """
     Retrieve a subgraph around a specified node label up to a certain depth.

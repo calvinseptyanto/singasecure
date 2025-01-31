@@ -75,22 +75,27 @@ Unique Insights or Emerging Patterns: Highlight additional insights, trends, or 
   "people": [
     {{
       "name": "Dr. Alice Chen",
-      "role": "Cybersecurity Director"
+      "role": "Cybersecurity Director",
+      "mention_count" : 10
     }},
     {{
       "name": "John Malkovich",
-      "role": "Critical Infrastructure Advisor"
+      "role": "Critical Infrastructure Advisor",
+        "mention_count" : 10    
     }}
   ],
   "facets": [
     {{
-      "facet": "AI-Powered Attacks"
+      "facet": "AI-Powered Attacks",
+      "mention_count" : 10
     }},
     {{
-      "facet": "Grid Vulnerability"
+      "facet": "Grid Vulnerability",
+      "mention_count" : 10
     }},
     {{
-      "facet": "Quantum Encryption"
+      "facet": "Quantum Encryption",
+      "mention_count" : 10
     }}
   ],
   "outlook": {{
