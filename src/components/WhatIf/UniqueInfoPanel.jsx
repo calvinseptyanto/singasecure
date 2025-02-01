@@ -1,5 +1,6 @@
 import { AlertCircle } from "lucide-react";
-export default function UniqueInfoPanel({ content }) {
+
+export default function UniqueInfoPanel({ uniqueInfo }) {
   return (
     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 group hover:border-yellow-200 transition-colors">
       <div className="flex items-center gap-3 mb-4">
@@ -33,7 +34,15 @@ export default function UniqueInfoPanel({ content }) {
             />
           </svg>
         </div>
-        <p className="text-gray-700 leading-relaxed pr-6">{content}</p>
+        {Array.isArray(uniqueInfo) ? (
+          <ul className="list-disc pl-5 text-gray-700 leading-relaxed pr-6">
+            {uniqueInfo.map((info, idx) => (
+              <li key={idx}>{info}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-gray-700 leading-relaxed pr-6">{uniqueInfo}</p>
+        )}
         <div className="mt-4 pt-3 border-t border-yellow-100">
           <div className="flex gap-2">
             <span className="px-2 py-1 bg-white text-xs font-medium text-red-600 rounded-full border border-red-200">

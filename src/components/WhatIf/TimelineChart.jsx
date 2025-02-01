@@ -15,20 +15,6 @@ export default function TimelineChart({ data }) {
                   {item.date}
                 </span>
               </div>
-              <span className="px-2 py-1 bg-purple-50 text-purple-600 text-sm rounded-full">
-                {item.count} Articles
-              </span>
-            </div>
-            <div className="mt-3 flex items-center gap-2">
-              <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-600 transition-all duration-500"
-                  style={{ width: `${Math.min(item.count * 5, 100)}%` }}
-                />
-              </div>
-              <span className="text-sm text-gray-500">
-                {item.count}x Coverage
-              </span>
             </div>
           </div>
         </div>

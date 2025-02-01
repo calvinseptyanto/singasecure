@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { DataSet, Network } from "vis-network/standalone/esm/vis-network";
 import "vis-network/styles/vis-network.css";
 
@@ -11,15 +11,28 @@ const toTitleCase = (str) => {
 // Utility function to sanitize descriptions
 const sanitizeDescription = (desc) => {
   if (!desc) return "";
-  // Replace <SEP> with a period and space to separate sentences
-  let sanitized = desc.replace(/<SEP>/g, ". ");
-  // Remove any remaining unwanted characters, preserving essential punctuation
-  sanitized = sanitized.replace(/[^a-zA-Z0-9\s.,-]/g, "").trim();
-  // Ensure that sentences end with a period
-  if (sanitized && !sanitized.endsWith(".")) {
-    sanitized += ".";
+  // Split on the <SEP> delimiter and trim each part
+  const parts = desc.split("<SEP>").map((part) => part.trim());
+  // Sanitize each part by removing unwanted characters but preserving punctuation
+  const sanitizedParts = parts.map((part) => {
+    // Remove unwanted characters but allow letters, numbers, whitespace, periods, commas, and hyphens
+    let sanitized = part.replace(/[^a-zA-Z0-9\s.,-]/g, "").trim();
+    // Ensure the sentence ends with a period
+    if (sanitized && !sanitized.endsWith(".")) {
+      sanitized += ".";
+    }
+    return sanitized;
+  });
+  // Join each sanitized sentence with a newline so you can display them as separate bullet points
+  return sanitizedParts.join("\n");
+};
+
+// Helper to extract full label text (handles arrays or strings)
+const getFullLabel = (label) => {
+  if (Array.isArray(label)) {
+    return toTitleCase(label.join(" "));
   }
-  return sanitized;
+  return toTitleCase(label);
 };
 
 const KnowledgeGraph = ({ edges, loading, error }) => {
@@ -34,7 +47,7 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
   const [maxNodes, setMaxNodes] = useState(Infinity); // Default to show all nodes
 
   // Vibrant color generator for nodes
-  const getGroupColor = (groupName) => {
+  const getGroupColor = useCallback((groupName) => {
     const hash = Array.from(groupName).reduce(
       (acc, char) => char.charCodeAt(0) + acc,
       0
@@ -49,42 +62,61 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
         border: `hsl(${hue}, 70%, 45%)`,
       },
     };
-  };
+  }, []);
 
   // Derive unique nodes from edges
   useEffect(() => {
     const nodeMap = new Map();
 
     edges.forEach((edge) => {
-      // Process 'from' node
-      const fromLabel = toTitleCase(edge.from_label[0]);
-      if (!nodeMap.has(fromLabel)) {
+      // Process the "from" node
+      const fromLabel = getFullLabel(edge.from_label);
+      const fromGroup = edge.from_group.replace(/"/g, "");
+      const fromDesc = sanitizeDescription(edge.from_description);
+
+      if (nodeMap.has(fromLabel)) {
+        // Merge descriptions if the new description isn’t already included
+        const existingNode = nodeMap.get(fromLabel);
+        if (fromDesc && !existingNode.description.includes(fromDesc)) {
+          existingNode.description = existingNode.description
+            ? `${existingNode.description} ${fromDesc}`
+            : fromDesc;
+        }
+      } else {
         nodeMap.set(fromLabel, {
           label: fromLabel,
-          group: edge.from_group.replace(/"/g, ""),
-          description: sanitizeDescription(edge.from_description),
+          group: fromGroup,
+          description: fromDesc,
         });
       }
 
-      // Process 'to' node
-      const toLabel = toTitleCase(edge.to_label[0]);
-      if (!nodeMap.has(toLabel)) {
+      // Process the "to" node
+      const toLabel = getFullLabel(edge.to_label);
+      const toGroup = edge.to_group.replace(/"/g, "");
+      const toDesc = sanitizeDescription(edge.to_description);
+
+      if (nodeMap.has(toLabel)) {
+        const existingNode = nodeMap.get(toLabel);
+        if (toDesc && !existingNode.description.includes(toDesc)) {
+          existingNode.description = existingNode.description
+            ? `${existingNode.description} ${toDesc}`
+            : toDesc;
+        }
+      } else {
         nodeMap.set(toLabel, {
           label: toLabel,
-          group: edge.to_group.replace(/"/g, ""),
-          description: sanitizeDescription(edge.to_description),
+          group: toGroup,
+          description: toDesc,
         });
       }
     });
 
     const uniqueNodes = Array.from(nodeMap.values());
-
-    // Limit the number of nodes based on maxNodes
     const limitedNodes =
       maxNodes === Infinity ? uniqueNodes : uniqueNodes.slice(0, maxNodes);
     setDerivedNodes(limitedNodes);
 
-    // Initialize available and selected groups
+    // Build the list of available groups from these derived nodes
     const groups = new Set(limitedNodes.map((node) => node.group));
     setAvailableGroups(groups);
     setSelectedGroups(groups);
@@ -95,19 +127,21 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
     if (selectedItem?.type === "node") {
       const directConnections = edges
         .filter((edge) => {
-          const fromNode = toTitleCase(edge.from_label[0]);
-          const toNode = toTitleCase(edge.to_label[0]);
+          const fromNode = getFullLabel(edge.from_label);
+          const toNode = getFullLabel(edge.to_label);
           return fromNode === selectedItem.id || toNode === selectedItem.id;
         })
         .map((edge) => {
-          const fromNode = toTitleCase(edge.from_label[0]);
-          const toNode = toTitleCase(edge.to_label[0]);
+          const fromNode = getFullLabel(edge.from_label);
+          const toNode = getFullLabel(edge.to_label);
           // Determine direction relative to the selected node
           const isFromSelected = fromNode === selectedItem.id;
           return {
             direction: isFromSelected ? "→" : "←",
             connectedNode: isFromSelected ? toNode : fromNode,
-            relationship: toTitleCase(edge.label.replace(/"/g, "")),
+            relationship: toTitleCase(
+              edge.label.replace(/"/g, "").replace(/<SEP>/g, "")
+            ),
             description:
               sanitizeDescription(edge.relationship_description) || "",
           };
@@ -130,7 +164,7 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
 
     const formattedNodes = new DataSet(
       filteredNodes.map((node) => ({
-        id: node.label, // Use formatted label as ID
+        id: node.label,
         label: node.label,
         group: node.group,
         title: node.description,
@@ -142,14 +176,16 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
     // Format edges with title case and connect using node labels
     const formattedEdges = new DataSet(
       edges.map((edge, index) => {
-        const fromNode = toTitleCase(edge.from_label[0]);
-        const toNode = toTitleCase(edge.to_label[0]);
+        const fromNode = getFullLabel(edge.from_label);
+        const toNode = getFullLabel(edge.to_label);
         const isSelected = selectedItem?.id === index;
         return {
           id: index,
           from: fromNode,
           to: toNode,
-          label: toTitleCase(edge.label.replace(/"/g, "")),
+          label: toTitleCase(
+            edge.label.replace(/"/g, "").replace(/<SEP>/g, "")
+          ),
           title: sanitizeDescription(edge.relationship_description),
           relationship_description: sanitizeDescription(
             edge.relationship_description
@@ -219,8 +255,8 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
           interaction: {
             hover: true,
             tooltipDelay: 150,
-            navigationButtons: true, // Added navigation buttons for better control
-            keyboard: true, // Enable keyboard controls
+            navigationButtons: true,
+            keyboard: true,
           },
         }
       );
@@ -229,18 +265,29 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
       networkRef.current.on("click", (params) => {
         if (params.nodes.length > 0) {
           const node = formattedNodes.get(params.nodes[0]);
+          console.log("Selected node:", node);
           setSelectedItem({ ...node, type: "node" });
+          setIsModalOpen(true);
         } else if (params.edges.length > 0) {
           const edge = formattedEdges.get(params.edges[0]);
-          setSelectedItem({ ...edge, type: "edge" });
+          console.log("Selected edge:", edge);
+          // Map relationship_description to description for display in modal
+          setSelectedItem({
+            ...edge,
+            type: "edge",
+            description: edge.relationship_description,
+          });
+          setIsModalOpen(true);
+        } else {
+          setSelectedItem(null);
+          setIsModalOpen(false);
         }
-        setIsModalOpen(true);
       });
     }
 
-    // Cleanup function to remove event listeners if needed
+    // Cleanup (if needed in future)
     return () => {
-      // No cleanup needed since we're maintaining the network instance
+      // Optionally, you could remove event listeners here.
     };
   }, [derivedNodes, edges, selectedGroups, getGroupColor, selectedItem]);
 
@@ -411,19 +458,19 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
                 <div className="space-y-3">
                   {selectedItem.description ? (
                     selectedItem.description
-                      .split(". ")
+                      .split("\n")
                       .filter((desc) => desc !== "")
                       .map((desc, index) => (
                         <div key={index} className="flex items-start gap-3">
                           <div className="w-1.5 h-1.5 mt-2.5 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex-shrink-0" />
                           <p className="text-gray-600 leading-relaxed text-sm">
-                            {desc.endsWith(".") ? desc : `${desc}.`}
+                            {desc}
                           </p>
                         </div>
                       ))
                   ) : (
                     <p className="text-gray-500 text-sm italic pl-5">
-                      {selectedItem.relationship_description}
+                      No details available.
                     </p>
                   )}
                 </div>
