@@ -49,7 +49,7 @@ export default function TopicsPage() {
   };
 
   // Preset topics
-  const presetTopics = ["Terrorism", "Espionage", "Cybersecurity Threats"];
+  const presetTopics = ["Communalism", "Espionage", "Cybersecurity Threats"];
 
   // Handler for search action
   const handleSearch = async () => {
