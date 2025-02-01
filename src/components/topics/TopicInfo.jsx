@@ -92,29 +92,32 @@ export default function TopicInfo({ title, content, icon, analystNotes }) {
           )}
 
           {/* Analyst Notes Section */}
-          {analystNotes && analystNotes.length > 0 && (
-            <div className="mt-4 p-4 bg-violet-50 rounded-lg border border-violet-200">
-              <div className="flex items-start gap-3 mb-3">
-                <NotebookText className="h-5 w-5 text-violet-600 flex-shrink-0" />
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800 mb-2">
-                    ISD Analyst Notes
-                  </h4>
-                  <ul className="space-y-2">
-                    {analystNotes.map((note, index) => (
-                      <li
-                        key={index}
-                        className="text-gray-700 text-sm leading-relaxed flex gap-2"
-                      >
-                        <span className="text-violet-600">•</span>
-                        {note}
-                      </li>
-                    ))}
-                  </ul>
+          {content &&
+            content.trim() !== "" &&
+            analystNotes &&
+            analystNotes.length > 0 && (
+              <div className="mt-4 p-4 bg-violet-50 rounded-lg border border-violet-200">
+                <div className="flex items-start gap-3 mb-3">
+                  <NotebookText className="h-5 w-5 text-violet-600 flex-shrink-0" />
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">
+                      ISD Analyst Notes
+                    </h4>
+                    <ul className="space-y-2">
+                      {analystNotes.map((note, index) => (
+                        <li
+                          key={index}
+                          className="text-gray-700 text-sm leading-relaxed flex gap-2"
+                        >
+                          <span className="text-violet-600">•</span>
+                          {note}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </div>
     </div>

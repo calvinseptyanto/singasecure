@@ -254,7 +254,7 @@ export default function TopicsPage() {
                 : "No topic overview data available for Visibility at this time."
             }
             icon={<Eye className="h-6 w-6" />}
-            analystNotes={analystNotesData.Visibility}
+            analystNotes={topicOverview ? analystNotesData.Visibility : []}
           />
           <TopicInfo
             title="Impact"
@@ -264,7 +264,7 @@ export default function TopicsPage() {
                 : "No topic overview data available for Impact at this time."
             }
             icon={<BarChart className="h-6 w-6" />}
-            analystNotes={analystNotesData.Impact}
+            analystNotes={topicOverview ? analystNotesData.Impact : []}
           />
           <TopicInfo
             title="Prioritization"
@@ -274,7 +274,7 @@ export default function TopicsPage() {
                 : "No topic overview data available for Prioritization at this time."
             }
             icon={<Target className="h-6 w-6" />}
-            analystNotes={analystNotesData.Prioritization}
+            analystNotes={topicOverview ? analystNotesData.Prioritization : []}
           />
         </div>
       </div>
