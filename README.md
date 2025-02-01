@@ -28,10 +28,32 @@ https://cloud.sambanova.ai/pricing
 
 ### Creating a .env file in server/
 ```
+cd server
+```
+
+```
 SAMBANOVA_API_KEY = 
 NEO4J_URI = 
 NEO4J_USERNAME = 
-NEO4J_PASSWORD = 
+NEO4J_PASSWORD =
+
 MAX_ASYNC=4
 MAX_TOKENS=16384
+```
+
+### Start the service
+Launch the 2 services as stated below
+```
+cd server/backend/graphrag
+python lightrag_service.py
+
+cd server/backend
+python intel.py
+```
+
+### Data Ingestion
+After starting the services, you can run the data ingestion pipeline. WARNING: This will take very long due to the large amount of unstructured data to process.
+```
+cd server/backend
+python ingest_request.py
 ```
