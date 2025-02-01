@@ -24,7 +24,7 @@ async def topic_overview(request: TopicOverviewRequest):
 
         # Post request to LLM
         llm_api = "http://localhost:8020/execute-query"
-        chat_payload = {"query": request.query, "prompt" : prompt}
+        chat_payload = {"query": "Topic: " + request.query, "prompt" : prompt}
 
         llm_response = requests.post(
             llm_api,
@@ -49,7 +49,7 @@ async def what_if_scenario(request: WhatIfRequest):
 
         # Post request to LLM
         llm_api = "http://localhost:8020/execute-query"
-        chat_payload = {"query": request.query, "prompt" : prompt}
+        chat_payload = {"query": "What if: " + request.query, "prompt" : prompt}
 
         llm_response = requests.post(
             llm_api,
