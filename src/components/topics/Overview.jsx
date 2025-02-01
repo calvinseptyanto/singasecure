@@ -5,6 +5,7 @@ import {
   MessageSquare,
   Loader2,
   NotebookText,
+  AlertTriangle,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
@@ -20,6 +21,7 @@ export default function Overview({
   const [showClarificationBtn, setShowClarificationBtn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showResponse, setShowResponse] = useState(false);
+  const [threatScore] = useState(() => Math.floor(Math.random() * 3) + 7);
 
   const handleTextSelect = () => {
     const selection = window.getSelection();
@@ -139,6 +141,23 @@ export default function Overview({
       {error && (
         <div className="mt-4 p-4 bg-red-50 rounded-lg border border-red-200">
           <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      {overviewData && (
+        <div className="mb-4 flex items-center gap-0 rounded-lg bg-gradient-to-r from-red-500 to-red-600 shadow-sm w-fit overflow-hidden">
+          <div className="flex items-center gap-2 bg-red-700/20 px-4 py-2 backdrop-blur-sm">
+            <AlertTriangle className="h-5 w-5 text-red-100 shrink-0" />
+            <span className="text-sm font-bold uppercase tracking-wide text-red-50">
+              High Risk
+            </span>
+          </div>
+          <div className="px-4 py-2 bg-white/10">
+            <span className="text-2xl font-black text-red-50">
+              {threatScore}
+            </span>
+            <span className="text-sm text-red-100 ml-1">/10</span>
+          </div>
         </div>
       )}
 
