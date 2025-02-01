@@ -218,4 +218,7 @@ After starting the services, run the data ingestion pipeline. **WARNING:** This 
     python ingest_request.py
     ```
 
+#### References
+Guo, Z., Xia, L., Yu, Y., Ao, T., & Huang, C. (2024). LightRAG: Simple and fast retrieval-augmented generation. arXiv. https://arxiv.org/pdf/2410.05779
+
 ---
