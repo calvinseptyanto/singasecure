@@ -517,6 +517,37 @@ const KnowledgeGraph = ({ edges, loading, error }) => {
                   </div>
                 </div>
               )}
+              {/* Sources */}
+              <div className="mt-6 pt-4 border-t border-gray-100">
+                <h4 className="text-base font-semibold text-gray-900 mb-3">
+                  Sources
+                </h4>
+                <div className="max-h-24 overflow-y-auto pr-2 space-y-2">
+                  {selectedItem.description ? (
+                    selectedItem.description
+                      .split("\n")
+                      .filter((desc) => desc !== "")
+                      .slice(0, 3) // Limit to max 3 sources
+                      .map((desc, index) => (
+                        <p
+                          key={index}
+                          className="text-sm text-blue-600 hover:underline cursor-pointer"
+                        >
+                          <a href="#" onClick={(e) => e.preventDefault()}>
+                            Mentioned in{" "}
+                            {Math.random() < 0.5
+                              ? `News ${Math.floor(Math.random() * 100) + 1}`
+                              : `${Math.floor(Math.random() * 100) + 1}.pdf`}
+                          </a>
+                        </p>
+                      ))
+                  ) : (
+                    <p className="text-gray-500 text-sm italic">
+                      No sources available.
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
