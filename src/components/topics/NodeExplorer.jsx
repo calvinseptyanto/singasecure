@@ -67,10 +67,10 @@ const NodeExplorer = () => {
             type="range"
             id="depth"
             min="1"
-            max="5"
+            max="3"
             value={depth}
             onChange={(e) => setDepth(parseInt(e.target.value, 10))}
-            className="w-full"
+            className="w-full accent-purple-500"
           />
           <span className="text-gray-700">{depth}</span>
         </div>

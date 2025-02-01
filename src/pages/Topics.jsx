@@ -14,6 +14,7 @@ import TopicInfo from "@/components/topics/TopicInfo";
 import KnowledgeGraph from "@/components/topics/KnowledgeGraph";
 import PathwayFinder from "@/components/topics/PathwayFinder";
 import NodeExplorer from "@/components/topics/NodeExplorer";
+import { tavily } from "@tavily/core";
 
 export default function TopicsPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -24,6 +25,7 @@ export default function TopicsPage() {
   const [overviewData, setOverviewData] = useState(null);
   const [topicOverview, setTopicOverview] = useState(null);
   const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
+  const [tavilyResults, setTavilyResults] = useState([]); // New state for Tavily results
 
   // Global loading and error states
   const [pageLoading, setPageLoading] = useState(false);
@@ -57,6 +59,7 @@ export default function TopicsPage() {
     setOverviewData(null);
     setTopicOverview(null);
     setGraphData({ nodes: [], edges: [] });
+    setTavilyResults([]); // Clear previous Tavily results
 
     try {
       // Create all fetch promises
@@ -81,13 +84,22 @@ export default function TopicsPage() {
         body: JSON.stringify({ query: searchQuery }),
       });
 
+      // Tavily API call
+      const tvly = tavily({ apiKey: "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" });
+      const tavilyPromise = tvly.search(searchQuery, { topic: "news" });
+
       // Wait for all fetch requests to complete
-      const [overviewResponse, topicOverviewResponse, graphResponse] =
-        await Promise.all([
-          overviewPromise,
-          topicOverviewPromise,
-          graphPromise,
-        ]);
+      const [
+        overviewResponse,
+        topicOverviewResponse,
+        graphResponse,
+        tavilyResponse,
+      ] = await Promise.all([
+        overviewPromise,
+        topicOverviewPromise,
+        graphPromise,
+        tavilyPromise,
+      ]);
 
       // Check for errors in the responses
       if (!overviewResponse.ok)
@@ -112,6 +124,19 @@ export default function TopicsPage() {
       setOverviewData(overviewJson);
       setTopicOverview(topicOverviewJson);
       setGraphData(graphJson);
+
+      // Process Tavily results
+      if (tavilyResponse && tavilyResponse.results) {
+        const processedTavilyResults = tavilyResponse.results.map((result) => ({
+          type: "tavily",
+          title: result.title,
+          url: result.url,
+          content: result.content,
+          score: result.score * 100, // Convert score to percentage
+          conflicts: Math.floor(Math.random() * 2) + 1, // Example conflict
+        }));
+        setTavilyResults(processedTavilyResults);
+      }
     } catch (err) {
       setError("Failed to fetch overview or topic details. Please try again.");
       setGraphError("Failed to fetch knowledge graph data. Please try again.");
@@ -206,7 +231,7 @@ export default function TopicsPage() {
 
         {/* Articles & Knowledge Graph */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 my-8">
-          <Articles />
+          <Articles tavilyResults={tavilyResults} />
           <KnowledgeGraph
             edges={graphData.edges}
             loading={false}

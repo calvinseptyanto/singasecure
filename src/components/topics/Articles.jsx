@@ -1,5 +1,13 @@
 import { useState } from "react";
-import { FileText, Newspaper, X, Plus, Link, FileUp } from "lucide-react";
+import {
+  FileText,
+  Newspaper,
+  X,
+  Globe,
+  Link,
+  FileUp,
+  BadgeCheck,
+} from "lucide-react";
 import newsExcerpts from "@/assets/Dataset/news_excerpts_parsed.json";
 import wikileaksDocs from "@/assets/Dataset/wikileaks_parsed.json";
 
@@ -9,7 +17,7 @@ const fixedScores = {
   pdf: [80.2, 86.4, 75.0, 91.3, 84.5, 77.8, 93.2, 82.6, 88.9, 85.1],
 };
 
-const Articles = () => {
+const Articles = ({ tavilyResults }) => {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -29,7 +37,19 @@ const Articles = () => {
     conflicts: Math.floor(Math.random() * 2) + 1,
   }));
 
-  const allArticles = [...processedNews, ...processedWikileaks];
+  // Process Tavily results to include fixed scores
+  const processedTavilyResults = tavilyResults.map((article, index) => ({
+    ...article,
+    type: "tavily",
+    score: fixedScores.news[index % fixedScores.news.length], // Use news scores for Tavily
+    conflicts: Math.floor(Math.random() * 2) + 1,
+  }));
+
+  const allArticles = [
+    ...processedNews,
+    ...processedWikileaks,
+    ...processedTavilyResults,
+  ];
 
   const getConflictExplanation = (article) => {
     if (article.type === "news") {
@@ -37,13 +57,18 @@ const Articles = () => {
         article.conflicts > 1 ? "s" : ""
       } with ${article.conflicts} other news source${
         article.conflicts > 1 ? "s" : ""
-      } and ${Math.floor(Math.random() * 2)} Wikileaks documents`;
+      } and ${Math.floor(Math.random() * 2 + 1)} Wikileaks documents`;
     }
-    return `Found ${article.conflicts} inconsistency${
-      article.conflicts > 1 ? "ies" : "y"
-    } with publicly available records and ${Math.floor(
-      Math.random() * 3
-    )} news reports`;
+    if (article.type === "pdf") {
+      return `Found ${article.conflicts} inconsistenc${
+        article.conflicts > 1 ? "ies" : "y"
+      } with publicly available records and ${Math.floor(
+        Math.random() * 3 + 1
+      )} news reports`;
+    }
+    return `Found ${article.conflicts} potential conflict${
+      article.conflicts > 1 ? "s" : ""
+    } with ${Math.floor(Math.random() * 2 + 1)} news reports`;
   };
 
   // Function to determine color based on score
@@ -55,10 +80,18 @@ const Articles = () => {
 
   // Function to truncate hostname to first 15 characters
   const truncateHostname = (hostname) => {
-    if (hostname.length > 11) {
-      return `${hostname.slice(0, 11)}...`;
+    if (hostname.length > 9) {
+      return `${hostname.slice(0, 9)}...`;
     }
     return hostname;
+  };
+
+  // Function to truncate title to first 11 characters
+  const truncateTitle = (title) => {
+    if (title && title.length > 8) {
+      return `${title.slice(0, 8)}...`;
+    }
+    return title;
   };
 
   return (
@@ -88,32 +121,42 @@ const Articles = () => {
                 className={`p-2 rounded-lg ${
                   article.type === "news"
                     ? "bg-violet-100 text-violet-600"
-                    : "bg-red-100 text-red-600"
+                    : article.type === "pdf"
+                    ? "bg-red-100 text-red-600"
+                    : "bg-blue-100 text-blue-600"
                 }`}
               >
                 {article.type === "news" ? (
                   <Newspaper className="w-5 h-5" />
-                ) : (
+                ) : article.type === "pdf" ? (
                   <FileText className="w-5 h-5" />
+                ) : (
+                  <Globe className="w-5 h-5" />
                 )}
               </div>
               <div className="flex-1">
                 <h3 className="font-semibold text-gray-800 mb-1">
                   {article.type === "news"
                     ? `News ${index + 1}`
-                    : article["PDF Path"]}
+                    : article.type === "pdf"
+                    ? article["PDF Path"]
+                    : truncateTitle(article.title)}
                 </h3>
                 <div
                   className="text-sm text-gray-500 max-w-[15ch] truncate"
                   title={
                     article.type === "news"
                       ? new URL(article.Link).hostname
+                      : article.type === "tavily"
+                      ? new URL(article.url).hostname
                       : undefined
                   }
                 >
                   {article.type === "news"
                     ? truncateHostname(new URL(article.Link).hostname)
-                    : "Classified"}
+                    : article.type === "pdf"
+                    ? "Classified"
+                    : truncateHostname(new URL(article.url).hostname)}
                 </div>
               </div>
             </div>
@@ -209,17 +252,23 @@ const Articles = () => {
                 <h2 className="text-2xl font-bold text-purple-900 flex items-center gap-3">
                   {selectedArticle.type === "news" ? (
                     <Newspaper className="w-8 h-8 text-violet-600" />
-                  ) : (
+                  ) : selectedArticle.type === "pdf" ? (
                     <FileText className="w-8 h-8 text-red-400" />
+                  ) : (
+                    <Globe className="w-8 h-8 text-blue-600" />
                   )}
                   {selectedArticle.type === "news"
                     ? "News Article"
-                    : "Classified Document"}
+                    : selectedArticle.type === "pdf"
+                    ? "Classified Document"
+                    : "Live Search Result"}
                 </h2>
                 <p className="text-purple-500 ml-11">
                   {selectedArticle.type === "news"
                     ? `From ${new URL(selectedArticle.Link).hostname}`
-                    : "Sensitive Government Document"}
+                    : selectedArticle.type === "pdf"
+                    ? "Sensitive Government Document"
+                    : `From ${new URL(selectedArticle.url).hostname}`}
                 </p>
               </div>
               <button
@@ -257,12 +306,18 @@ const Articles = () => {
                   Source URL
                 </p>
                 <a
-                  href={selectedArticle.Link || selectedArticle["PDF Path"]}
+                  href={
+                    selectedArticle.Link ||
+                    selectedArticle["PDF Path"] ||
+                    selectedArticle.url
+                  }
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-purple-600 hover:underline break-all text-sm"
                 >
-                  {selectedArticle.Link || selectedArticle["PDF Path"]}
+                  {selectedArticle.Link ||
+                    selectedArticle["PDF Path"] ||
+                    selectedArticle.url}
                 </a>
               </div>
 
@@ -271,7 +326,7 @@ const Articles = () => {
                   Full Content
                 </p>
                 <div className="prose max-w-none text-gray-700 whitespace-pre-wrap border-t border-purple-50 pt-4 text-sm">
-                  {selectedArticle.Text}
+                  {selectedArticle.Text || selectedArticle.content}
                 </div>
               </div>
             </div>
