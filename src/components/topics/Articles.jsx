@@ -45,9 +45,13 @@ const Articles = ({ tavilyResults }) => {
     conflicts: Math.floor(Math.random() * 2) + 1,
   }));
 
+  // Limit the number of news and pdf articles
+  const limitedNews = processedNews.slice(0, 20);
+  const limitedWikileaks = processedWikileaks.slice(0, 5);
+
   const allArticles = [
-    ...processedNews,
-    ...processedWikileaks,
+    ...limitedNews,
+    ...limitedWikileaks,
     ...processedTavilyResults,
   ];
 
