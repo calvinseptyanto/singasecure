@@ -38,12 +38,14 @@ const Articles = ({ tavilyResults }) => {
   }));
 
   // Process Tavily results to include fixed scores
-  const processedTavilyResults = tavilyResults.map((article, index) => ({
-    ...article,
-    type: "tavily",
-    score: fixedScores.news[index % fixedScores.news.length], // Use news scores for Tavily
-    conflicts: Math.floor(Math.random() * 2) + 1,
-  }));
+  const processedTavilyResults = tavilyResults
+    ? tavilyResults.map((article, index) => ({
+        ...article,
+        type: "tavily",
+        score: fixedScores.news[index % fixedScores.news.length],
+        conflicts: Math.floor(Math.random() * 2) + 1,
+      }))
+    : [];
 
   // Limit the number of news and pdf articles
   const limitedNews = processedNews.slice(0, 20);
@@ -111,86 +113,94 @@ const Articles = ({ tavilyResults }) => {
         </button>
       </div>
 
-      {/* Enhanced Grid with Adjusted Columns */}
-      <div className="flex-1 grid grid-cols-3 gap-5 overflow-y-auto pb-6 scrollbar-thin scrollbar-thumb-gray-200">
-        {allArticles.map((article, index) => (
-          <div
-            key={index}
-            onClick={() => setSelectedArticle(article)}
-            className="group rounded-xl p-4 hover:ring-1 cursor-pointer bg-white shadow-sm hover:shadow-md transition-all ring-gray-100 flex flex-col justify-between min-h-[120px]"
-          >
-            {/* Top Section */}
-            <div className="flex items-start gap-3 mb-3">
+      {/* Conditional Content */}
+      <div className="flex-1 overflow-y-auto pb-6 scrollbar-thin scrollbar-thumb-gray-200">
+        {tavilyResults && tavilyResults.length > 0 ? (
+          <div className="grid grid-cols-3 gap-5">
+            {allArticles.map((article, index) => (
               <div
-                className={`p-2 rounded-lg ${
-                  article.type === "news"
-                    ? "bg-violet-100 text-violet-600"
-                    : article.type === "pdf"
-                    ? "bg-red-100 text-red-600"
-                    : "bg-blue-100 text-blue-600"
-                }`}
+                key={index}
+                onClick={() => setSelectedArticle(article)}
+                className="group rounded-xl p-4 hover:ring-1 cursor-pointer bg-white shadow-sm hover:shadow-md transition-all ring-gray-100 flex flex-col justify-between min-h-[120px]"
               >
-                {article.type === "news" ? (
-                  <Newspaper className="w-5 h-5" />
-                ) : article.type === "pdf" ? (
-                  <FileText className="w-5 h-5" />
-                ) : (
-                  <Globe className="w-5 h-5" />
-                )}
-              </div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-800 mb-1">
-                  {article.type === "news"
-                    ? `News ${index + 1}`
-                    : article.type === "pdf"
-                    ? article["PDF Path"]
-                    : truncateTitle(article.title)}
-                </h3>
-                <div
-                  className="text-sm text-gray-500 max-w-[15ch] truncate"
-                  title={
-                    article.type === "news"
-                      ? new URL(article.Link).hostname
-                      : article.type === "tavily"
-                      ? new URL(article.url).hostname
-                      : undefined
-                  }
-                >
-                  {article.type === "news"
-                    ? truncateHostname(new URL(article.Link).hostname)
-                    : article.type === "pdf"
-                    ? "Classified"
-                    : truncateHostname(new URL(article.url).hostname)}
-                </div>
-              </div>
-            </div>
-
-            {/* Bottom Score Section */}
-            <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-              <div className="flex items-center gap-2 flex-1">
-                <div className="flex-1 bg-gray-100 rounded-full h-2">
+                {/* Top Section */}
+                <div className="flex items-start gap-3 mb-3">
                   <div
-                    className={`rounded-full h-2 transition-all ${getScoreColor(
-                      article.score
-                    )}`}
-                    style={{ width: `${article.score}%` }}
-                  />
+                    className={`p-2 rounded-lg ${
+                      article.type === "news"
+                        ? "bg-violet-100 text-violet-600"
+                        : article.type === "pdf"
+                        ? "bg-red-100 text-red-600"
+                        : "bg-blue-100 text-blue-600"
+                    }`}
+                  >
+                    {article.type === "news" ? (
+                      <Newspaper className="w-5 h-5" />
+                    ) : article.type === "pdf" ? (
+                      <FileText className="w-5 h-5" />
+                    ) : (
+                      <Globe className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-800 mb-1">
+                      {article.type === "news"
+                        ? `News ${index + 1}`
+                        : article.type === "pdf"
+                        ? article["PDF Path"]
+                        : truncateTitle(article.title)}
+                    </h3>
+                    <div
+                      className="text-sm text-gray-500 max-w-[15ch] truncate"
+                      title={
+                        article.type === "news"
+                          ? new URL(article.Link).hostname
+                          : article.type === "tavily"
+                          ? new URL(article.url).hostname
+                          : undefined
+                      }
+                    >
+                      {article.type === "news"
+                        ? truncateHostname(new URL(article.Link).hostname)
+                        : article.type === "pdf"
+                        ? "Classified"
+                        : truncateHostname(new URL(article.url).hostname)}
+                    </div>
+                  </div>
                 </div>
-                <span
-                  className={`text-sm font-medium ${
-                    article.score >= 90
-                      ? "text-green-600"
-                      : article.score >= 75
-                      ? "text-yellow-600"
-                      : "text-red-600"
-                  }`}
-                >
-                  {article.score}%
-                </span>
+
+                {/* Bottom Score Section */}
+                <div className="flex justify-between items-center pt-2 border-t border-gray-100">
+                  <div className="flex items-center gap-2 flex-1">
+                    <div className="flex-1 bg-gray-100 rounded-full h-2">
+                      <div
+                        className={`rounded-full h-2 transition-all ${getScoreColor(
+                          article.score
+                        )}`}
+                        style={{ width: `${article.score}%` }}
+                      />
+                    </div>
+                    <span
+                      className={`text-sm font-medium ${
+                        article.score >= 90
+                          ? "text-green-600"
+                          : article.score >= 75
+                          ? "text-yellow-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      {article.score}%
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          <div className="h-full flex items-center justify-center text-gray-500">
+            Try searching a topic to display articles
+          </div>
+        )}
       </div>
 
       {/* Add Article Modal */}
