@@ -1,5 +1,7 @@
 # SingaSecure
 
+_Update (8 Feb 2025):_ We are happy to announce that SingaSecure achieved the 1st Place Solution in SMU-BIA ISD Datathon 2025!
+
 SingaSecure is a smart solution designed to enhance Singapore's response to security threats. By transforming vast amounts of unstructured data into clear, actionable threat intelligence, SingaSecure empowers security agencies—such as Singapore's Internal Security Department (ISD)—and everyday citizens with reliable insights into evolving security risks and trends.
 
 ---
