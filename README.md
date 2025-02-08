@@ -212,10 +212,10 @@ Launch the two services as follows:
 ### Architecture Diagrams
 We used LightRAG as the main framework for Semantic RAG and Knowledge Graph Querying.
 
-## Data Ingestion Pipeline
+#### Data Ingestion Pipeline
 <img width="910" alt="image" src="https://github.com/user-attachments/assets/2f58c8f8-a30a-428f-accb-231bad9e7525" />
 
-## Semantic RAG Pipeline
+#### Semantic RAG Pipeline
 <img width="899" alt="image" src="https://github.com/user-attachments/assets/145eb3e9-793c-4ec0-a4bd-82b2e165c998" />
 
 #### Data Ingestion
