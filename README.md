@@ -209,6 +209,15 @@ Launch the two services as follows:
     python intel.py
     ```
 
+### Architecture Diagrams
+We used LightRAG as the main framework for Semantic RAG and Knowledge Graph Querying.
+
+## Data Ingestion Pipeline
+<img width="910" alt="image" src="https://github.com/user-attachments/assets/2f58c8f8-a30a-428f-accb-231bad9e7525" />
+
+## Semantic RAG Pipeline
+<img width="899" alt="image" src="https://github.com/user-attachments/assets/145eb3e9-793c-4ec0-a4bd-82b2e165c998" />
+
 #### Data Ingestion
 
 After starting the services, run the data ingestion pipeline. **WARNING:** This process may take a significant amount of time due to the large amount of unstructured data being processed.
